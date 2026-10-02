@@ -566,6 +566,15 @@
     });
 
     window.addEventListener('DOMContentLoaded', async () => {
+      // AUTO-RESET QUA NGÀY MỚI (Làm mới trang nếu qua 0:00h)
+      const initialDateStr = getTodayString();
+      setInterval(() => {
+        if (getTodayString() !== initialDateStr) {
+          showToast("Đã qua ngày mới! Tự động chốt task và tải lại...", "success");
+          setTimeout(() => { window.location.reload(); }, 2000);
+        }
+      }, 30000); // Check 30 giây một lần
+
       document.getElementById('currentDateText').innerText = getFormattedDateVN();
 
       try {
@@ -1054,7 +1063,7 @@
           const item = document.createElement('div');
           const taskIdDisplay = task.taskId || task.id;
 
-          item.className = `p-4 rounded-2xl border-2 ${task.completed ? 'bg-emerald-50/40 border-emerald-200' : 'bg-slate-50 border-slate-200'} space-y-3`;
+          item.className = `p-4 rounded-2xl border-2 ${task.completed ? 'bg-emerald-50/40 border-emerald-200' : 'bg-slate-50 border-slate-200'}`;
           
           item.innerHTML = `
             <div class="flex items-start justify-between gap-3">
@@ -1068,11 +1077,10 @@
             </div>
 
             ${task.proofImage ? `
-              <div class="bg-white p-2 rounded-xl border border-slate-200">
-                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1"><i class="fa-solid fa-camera"></i> Minh Chứng Ảnh (Công Khai)</span>
-                <img src="${task.proofImage}" class="w-full max-h-52 object-contain rounded-lg border border-slate-100 cursor-pointer hover:opacity-90 transition-opacity" onclick="window.viewProofImageDirect('${task.proofImage}', '${escapeHtml(task.text)}')">
-              </div>
-            ` : (task.completed ? '<div class="text-[11px] font-bold text-amber-600 bg-amber-50 p-2 rounded-lg"><i class="fa-solid fa-info-circle"></i> Task đã xác nhận</div>' : '<div class="text-[11px] font-bold text-slate-400 bg-slate-100 p-2 rounded-lg"><i class="fa-solid fa-clock"></i> Chưa tải ảnh minh chứng</div>')}
+              <button onclick="window.viewProofImageDirect('${task.proofImage}', '${escapeHtml(task.text)}')" class="mt-3 w-full text-[11px] font-bold bg-indigo-50 text-indigo-700 py-2.5 rounded-xl hover:bg-indigo-100 transition-all border border-indigo-100 flex items-center justify-center gap-2 active:scale-95">
+                 <i class="fa-solid fa-image"></i> Xem Minh Chứng Ảnh
+              </button>
+            ` : (task.completed ? '<div class="mt-3 text-[11px] font-bold text-amber-600 bg-amber-50 py-2 rounded-xl text-center"><i class="fa-solid fa-info-circle"></i> Task đã xác nhận</div>' : '<div class="mt-3 text-[11px] font-bold text-slate-400 bg-slate-100 py-2 rounded-xl text-center"><i class="fa-solid fa-clock"></i> Chưa tải ảnh minh chứng</div>')}
           `;
           container.appendChild(item);
         });
