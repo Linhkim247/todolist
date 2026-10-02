@@ -257,45 +257,45 @@
         
         <!-- Print Header & Logo -->
         <div class="flex flex-col items-center border-b-[3px] border-slate-900 pb-4 mb-4">
-          <img src="https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/9bf2798ebc685b110b8f3c4505e68211~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=c823af9b&x-expires=1791122400&x-signature=DV6ieGSTfaQo1DRjs97j8%2FVFdqo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my2" alt="Logo" class="w-[75px] h-[75px] rounded-full border-2 border-slate-900 object-cover mb-2 shadow-sm grayscale-[20%]">
+          <img src="https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/9bf2798ebc685b110b8f3c4505e68211~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=c823af9b&x-expires=1791122400&x-signature=DV6ieGSTfaQo1DRjs97j8%2FVFdqo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my2" alt="Logo" class="w-[85px] h-[85px] rounded-full border-2 border-slate-900 object-cover mb-2 shadow-sm grayscale-[20%]">
           <div class="text-center">
-            <h2 class="text-lg font-black uppercase tracking-widest leading-tight">DANH SÁCH<br/>CÔNG VIỆC</h2>
-            <p id="printCardTotalTasks" class="text-[10px] font-black text-indigo-700 mt-1 uppercase tracking-widest bg-indigo-100 inline-block px-2 py-0.5 rounded">Tổng: 0 Task</p>
+            <h2 class="text-2xl font-black uppercase tracking-widest leading-tight">DANH SÁCH<br/>CÔNG VIỆC</h2>
+            <p id="printCardTotalTasks" class="text-sm font-black text-indigo-700 mt-2 uppercase tracking-widest bg-indigo-100 inline-block px-3 py-1 rounded">Tổng: 0 Task</p>
           </div>
         </div>
 
         <!-- User Info Bar -->
-        <div class="flex justify-between items-center bg-slate-100 p-2.5 rounded-xl border border-slate-300 text-[10px] font-bold mb-5">
-          <div class="truncate mr-2 flex flex-col gap-1">
-            <div><span class="text-slate-500 uppercase">User:</span> <span id="printCardUserName" class="text-slate-900 font-black text-xs">--</span></div>
-            <div><span class="text-slate-500 uppercase">Ngày:</span> <span id="printCardDate" class="text-slate-900 font-black">--/--/----</span></div>
+        <div class="flex justify-between items-center bg-slate-100 p-3.5 rounded-xl border border-slate-300 text-sm font-bold mb-5">
+          <div class="truncate mr-2 flex flex-col gap-1.5">
+            <div><span class="text-slate-500 uppercase">User:</span> <span id="printCardUserName" class="text-slate-900 font-black text-sm">--</span></div>
+            <div><span class="text-slate-500 uppercase">Ngày:</span> <span id="printCardDate" class="text-slate-900 font-black text-sm">--/--/----</span></div>
           </div>
-          <div class="flex flex-col gap-1 items-end shrink-0">
-             <div class="font-mono bg-slate-900 text-amber-400 px-2 py-0.5 rounded" id="printCardUserId">CD--------</div>
-             <div class="font-mono bg-indigo-600 text-white px-2 py-0.5 rounded text-[9px]" id="printCardDailyId">D--------</div>
+          <div class="flex flex-col gap-1.5 items-end shrink-0">
+             <div class="font-mono bg-slate-900 text-amber-400 px-2.5 py-1 rounded text-xs" id="printCardUserId">CD--------</div>
+             <div class="font-mono bg-indigo-600 text-white px-2.5 py-1 rounded text-xs" id="printCardDailyId">D--------</div>
           </div>
         </div>
 
         <!-- Task List for Print -->
-        <div id="printTaskList" class="space-y-2 mb-6 min-h-[100px]">
+        <div id="printTaskList" class="space-y-3 mb-6 min-h-[100px]">
           <!-- Injected via JS -->
         </div>
 
         <!-- Dual QR Codes Section -->
-        <div class="border-t-[3px] border-dotted border-slate-300 pt-5 mt-2">
+        <div class="border-t-[3px] border-dotted border-slate-300 pt-5 mt-4">
           <div class="grid grid-cols-2 gap-4 text-center">
             <div class="flex flex-col items-center">
-              <div id="qrProfile" class="w-[100px] h-[100px] bg-white p-1 rounded-xl border-2 border-slate-300 flex items-center justify-center"></div>
-              <span class="text-[9px] font-black uppercase tracking-tighter mt-2 text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">Hồ Sơ Cá Nhân</span>
+              <div id="qrProfile" class="w-[100px] h-[100px] bg-white p-1.5 rounded-xl border-2 border-slate-300 flex items-center justify-center"></div>
+              <span class="text-[11px] font-black uppercase tracking-tighter mt-3 text-indigo-700 bg-indigo-50 px-3 py-1 rounded">Hồ Sơ Cá Nhân</span>
             </div>
             <div class="flex flex-col items-center">
-              <div id="qrVerify" class="w-[100px] h-[100px] bg-white p-1 rounded-xl border-2 border-slate-300 flex items-center justify-center"></div>
-              <span class="text-[9px] font-black uppercase tracking-tighter mt-2 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Kiểm Chứng Ngày</span>
+              <div id="qrVerify" class="w-[100px] h-[100px] bg-white p-1.5 rounded-xl border-2 border-slate-300 flex items-center justify-center"></div>
+              <span class="text-[11px] font-black uppercase tracking-tighter mt-3 text-emerald-700 bg-emerald-50 px-3 py-1 rounded">Kiểm Chứng Ngày</span>
             </div>
           </div>
         </div>
 
-        <div class="text-center text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-5">
+        <div class="text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-5">
           Designed for Notepad Print
         </div>
       </div>
@@ -1133,18 +1133,18 @@
       listContainer.innerHTML = '';
       
       if(todayTasks.length === 0) {
-         listContainer.innerHTML = '<div class="text-[10px] font-bold text-center text-slate-400 py-4 border-2 border-dashed border-slate-200 rounded">Trống</div>';
+         listContainer.innerHTML = '<div class="text-sm font-bold text-center text-slate-400 py-4 border-2 border-dashed border-slate-200 rounded">Trống</div>';
       } else {
           todayTasks.forEach((t) => {
             const div = document.createElement('div');
-            div.className = "flex items-start gap-2 mb-1.5";
+            div.className = "flex items-start gap-3 mb-3";
             div.innerHTML = `
-              <div class="w-4 h-4 rounded border-2 border-slate-900 shrink-0 mt-0.5 bg-white relative">
-                 ${t.completed ? '<div class="absolute inset-0 bg-slate-900 m-0.5 rounded-sm"></div>' : ''}
+              <div class="w-6 h-6 rounded border-2 border-slate-900 shrink-0 mt-0.5 bg-white relative">
+                 ${t.completed ? '<div class="absolute inset-0 bg-slate-900 m-1 rounded-sm"></div>' : ''}
               </div>
               <div class="flex-1">
-                <p class="text-xs font-bold leading-tight text-slate-900 ${t.completed ? 'line-through text-slate-500' : ''}">${escapeHtml(t.text)}</p>
-                <span class="text-[8px] font-mono text-slate-400 font-bold">ID: ${t.taskId || t.id}</span>
+                <p class="text-base font-bold leading-tight text-slate-900 ${t.completed ? 'line-through text-slate-500' : ''}">${escapeHtml(t.text)}</p>
+                <span class="text-xs font-mono text-slate-400 font-bold">ID: ${t.taskId || t.id}</span>
               </div>
             `;
             listContainer.appendChild(div);
@@ -1159,7 +1159,7 @@
 
       new QRCode(document.getElementById('qrProfile'), {
         text: profileUrl,
-        width: 80, height: 80,
+        width: 100, height: 100,
         colorDark: "#3730a3",
         colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.L
@@ -1167,7 +1167,7 @@
 
       new QRCode(document.getElementById('qrVerify'), {
         text: verifyUrl,
-        width: 80, height: 80,
+        width: 100, height: 100,
         colorDark: "#065f46",
         colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.L
