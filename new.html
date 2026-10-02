@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sổ Công Việc Firebase - In Ấn Chữ To & Mã QR</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2canvas for image generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- QRCode.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Be Vietnam Pro', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+
+        /* Printable card specific high-contrast style */
+        .print-card {
+            background-color: #ffffff;
+            color: #000000;
+            width: 500px;
+            box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Media print style */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printable-card-wrapper, #printable-card-wrapper * {
+                visibility: visible;
+            }
+            #printable-card-wrapper {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                display: flex;
+                justify-content: center;
+                align-items: flex-start;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white pb-12">
+
+    <div class="w-full max-w-5xl mx-auto px-4 py-6 md:py-8 flex-1 flex flex-col">
+        
+        <!-- Top Navigation / User Banner -->
+        <header class="bg-slate-800/90 backdrop-blur-md border border-slate-700/80 rounded-3xl p-6 shadow-2xl mb-6 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-4 w-full md:w-auto">
+                <div class="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-2xl font-black shadow-lg shadow-indigo-600/40">
+                    <i class="fa-solid fa-user-astronaut"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 id="display-username" class="text-2xl font-extrabold text-white">Đang tải...</h2>
+                        <span id="display-userid-badge" class="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono text-xs font-bold">ID: ---</span>
+                    </div>
+                    <p class="text-xs text-slate-400 font-semibold mt-0.5" id="user-stats-summary">Tổng task: 0 | Hoàn thành: 0</p>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between md:justify-end gap-4 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 border-slate-700">
+                <div class="text-left md:text-right">
+                    <span id="current-date" class="block text-sm font-bold text-slate-300">-- --- ----</span>
+                    <span id="current-time" class="text-2xl font-extrabold font-mono text-indigo-400">00:00:00</span>
+                </div>
+                <button onclick="openProfileModal()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 border border-slate-600">
+                    <i class="fa-solid fa-id-card"></i> Hồ Sơ
+                </button>
+            </div>
+        </header>
+
+        <!-- Controls Bar -->
+        <div class="bg-slate-800/80 border border-slate-700 rounded-3xl p-6 shadow-xl mb-6 flex flex-wrap gap-4 items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl font-bold border border-emerald-500/30">
+                    <i class="fa-solid fa-list-check"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-extrabold text-white">Danh Sách Công Việc Hôm Nay</h2>
+                    <p id="task-stats" class="text-sm font-bold text-slate-400">Đang đồng bộ dữ liệu Firebase...</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-3 w-full sm:w-auto">
+                <button id="btn-open-print" onclick="openPrintModal()" class="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-base px-6 py-3.5 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-print text-xl"></i> IN / TẢI ẢNH THẺ
+                </button>
+            </div>
+        </div>
+
+        <!-- Task Input Form -->
+        <form id="todo-form" onsubmit="handleAddTask(event)" class="mb-8">
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input 
+                    type="text" 
+                    id="task-input" 
+                    placeholder="Nhập công việc mới ở đây (Lưu trực tiếp lên Cloud)..." 
+                    required
+                    class="flex-1 bg-slate-800/90 text-white placeholder-slate-400 text-xl font-bold px-6 py-5 rounded-2xl border-2 border-slate-700 focus:border-indigo-500 focus:outline-none shadow-xl transition-all"
+                >
+                <button 
+                    type="submit" 
+                    id="btn-add-task"
+                    class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-extrabold text-xl px-8 py-5 rounded-2xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2"
+                >
+                    <i class="fa-solid fa-plus text-2xl"></i> Thêm Task
+                </button>
+            </div>
+        </form>
+
+        <!-- Task List Container -->
+        <main class="flex-1 mb-8">
+            <ul id="task-list" class="space-y-4">
+                <!-- Dynamic tasks from Firebase -->
+            </ul>
+
+            <!-- Empty State Display -->
+            <div id="empty-state" class="hidden bg-slate-800/40 border-2 border-dashed border-slate-700 rounded-3xl p-12 text-center my-6">
+                <i class="fa-solid fa-clipboard-check text-6xl text-slate-600 mb-4"></i>
+                <h3 class="text-2xl font-bold text-slate-300 mb-2">Chưa có công việc nào hôm nay!</h3>
+                <p class="text-slate-400 text-base">Hãy nhập nội dung công việc ở ô trên để thêm vào danh sách.</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL IN VÀ TẢI ẢNH (CHỨA 2 MÃ QR) -->
+    <div id="print-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="bg-slate-900 rounded-3xl border border-slate-700 max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden transform scale-95 transition-all duration-300" id="modal-container">
+            <!-- Modal Header -->
+            <div class="p-5 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <span class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-lg border border-emerald-500/30">
+                        <i class="fa-solid fa-print"></i>
+                    </span>
+                    <div>
+                        <h3 class="text-xl font-extrabold text-white">Xem Trước Thẻ In & Mã QR</h3>
+                        <p class="text-xs text-slate-400">Chữ to nét đậm tối ưu cho máy in nhiệt & giấy ghi chú</p>
+                    </div>
+                </div>
+                <button onclick="closePrintModal()" class="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 flex items-center justify-center transition-all">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content - Scrollable printable card wrapper -->
+            <div class="p-6 overflow-y-auto flex-1 flex flex-col items-center justify-center bg-slate-950/80">
+                
+                <!-- THE PRINTABLE CARD CONTAINER -->
+                <div id="printable-card-wrapper">
+                    <div id="printable-card" class="print-card p-7 rounded-2xl border-4 border-black text-black">
+                        
+                        <!-- Print Card Header -->
+                        <div class="border-b-4 border-black pb-4 mb-4 flex flex-col items-center text-center">
+                            <!-- Logo với CSS phóng to trung tâm -->
+                            <div class="w-[85px] h-[85px] rounded-full overflow-hidden mb-2 relative bg-white border-2 border-black flex-shrink-0">
+                                <img src="Screenshot%202024-10-01%20205119.jpg" alt="Logo" class="absolute max-w-none" style="width: 320%; top: 50%; left: 50%; transform: translate(-50%, -50%);" onerror="this.onerror=null; this.src='https://placehold.co/150x150/000000/ffffff?text=CD';">
+                            </div>
+                            
+                            <h2 class="text-2xl font-black uppercase tracking-tight text-black mb-1">DANH SÁCH CÔNG VIỆC</h2>
+                            
+                            <!-- User Name & User ID Display on Card -->
+                            <div class="bg-black text-white px-4 py-1 rounded-full text-sm font-black flex items-center gap-2 mb-2">
+                                <span id="print-card-username">---</span>
+                                <span class="text-xs text-gray-300 font-mono">| ID: <span id="print-card-userid">---</span></span>
+                            </div>
+
+                            <div id="print-card-date" class="text-base font-extrabold text-black flex items-center justify-center gap-2">
+                                <i class="fa-regular fa-calendar"></i> <span>--/--/----</span>
+                            </div>
+                        </div>
+
+                        <!-- Task List Inside Print Card -->
+                        <div id="print-task-list" class="space-y-3 mb-5 min-h-[140px]">
+                            <!-- Dynamic items -->
+                        </div>
+
+                        <!-- Print Card Footer with 2 SEPARATE QR CODES -->
+                        <div class="border-t-4 border-black pt-4">
+                            <p class="text-xs font-black uppercase text-center text-black tracking-wider mb-3">
+                                📌 HỆ THỐNG MÃ QR XÁC MINH TRỰC TUYẾN
+                            </p>
+                            
+                            <div class="grid grid-cols-2 gap-4 items-center">
+                                <!-- QR CODE 1: PROFILE & STATS -->
+                                <div class="flex flex-col items-center text-center bg-gray-100 p-2.5 rounded-xl border-2 border-black">
+                                    <span class="text-[11px] font-black uppercase text-black mb-1">1. QR TRANG CÁ NHÂN</span>
+                                    <div class="border border-black p-1 bg-white rounded-lg my-1">
+                                        <div id="qrcode-profile" class="w-[110px] h-[110px] flex items-center justify-center"></div>
+                                    </div>
+                                    <p class="text-[9px] font-extrabold text-gray-800 leading-tight">Quét xem hồ sơ & tổng số task</p>
+                                </div>
+
+                                <!-- QR CODE 2: PROOF & TASK VERIFICATION -->
+                                <div class="flex flex-col items-center text-center bg-gray-100 p-2.5 rounded-xl border-2 border-black">
+                                    <span class="text-[11px] font-black uppercase text-black mb-1">2. QR XÁC NHẬN CÔNG VIỆC</span>
+                                    <div class="border border-black p-1 bg-white rounded-lg my-1">
+                                        <div id="qrcode-verify" class="w-[110px] h-[110px] flex items-center justify-center"></div>
+                                    </div>
+                                    <p class="text-[9px] font-extrabold text-gray-800 leading-tight">Quét gửi ảnh duyệt hoàn thành</p>
+                                </div>
+                            </div>
+
+                            <div class="text-center mt-3 text-[10px] font-bold text-gray-700">
+                                Mã Task Ngày: <span id="print-card-task-id" class="font-mono font-black">---</span> | Ngày in: <span id="print-card-timestamp"></span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer Action Buttons -->
+            <div class="p-5 bg-slate-800 border-t border-slate-700 flex flex-col sm:flex-row gap-3">
+                <button onclick="downloadCardAsImage()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold text-base py-3.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30">
+                    <i class="fa-solid fa-download text-lg"></i> TẢI ẢNH PNG
+                </button>
+                <button onclick="triggerPrintDialog()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-base py-3.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30">
+                    <i class="fa-solid fa-print text-lg"></i> IN TRỰC TIẾP
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL KHỞI TẠO TÊN NGƯỜI DÙNG (Yêu cầu tên không trùng) -->
+    <div id="user-init-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-lg z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="bg-slate-900 rounded-3xl border border-slate-700 max-w-md w-full p-6 md:p-8 shadow-2xl text-center">
+            <div class="w-16 h-16 rounded-3xl bg-indigo-600 text-white flex items-center justify-center text-3xl font-black mx-auto mb-4 shadow-xl shadow-indigo-600/40">
+                <i class="fa-solid fa-user-plus"></i>
+            </div>
+            <h3 class="text-2xl font-black text-white mb-2">Chào Mừng Bạn!</h3>
+            <p class="text-sm text-slate-400 mb-6">Vui lòng chọn Tên Người Dùng duy nhất để khởi tạo ID tài khoản cá nhân.</p>
+            
+            <form onsubmit="handleRegisterUser(event)" class="space-y-4">
+                <div>
+                    <input 
+                        type="text" 
+                        id="register-username-input" 
+                        placeholder="Nhập tên của bạn (không trùng)..." 
+                        required 
+                        class="w-full bg-slate-800 text-white font-bold px-5 py-4 rounded-2xl border-2 border-slate-700 focus:border-indigo-500 focus:outline-none text-center text-lg"
+                    >
+                    <p id="username-error-msg" class="text-xs font-bold text-rose-400 mt-2 hidden"></p>
+                </div>
+                <button type="submit" id="btn-submit-register" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black text-lg py-4 rounded-2xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-arrow-right"></i> Bắt Đầu Sử Dụng
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL XÁC NHẬN HOÀN THÀNH & TẢI BẰNG CHỨNG (Ảnh) -->
+    <div id="proof-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="bg-slate-900 rounded-3xl border border-slate-700 max-w-lg w-full p-6 shadow-2xl">
+            <div class="flex justify-between items-center pb-4 mb-4 border-b border-slate-800">
+                <h3 class="text-xl font-extrabold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-camera text-emerald-400"></i> Bằng Chứng Hoàn Thành
+                </h3>
+                <button onclick="closeProofModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <p class="text-sm text-slate-300 font-medium" id="proof-task-title">Công việc: ...</p>
+                
+                <div id="proof-preview-container" class="w-full h-48 bg-slate-800 rounded-2xl border-2 border-dashed border-slate-700 flex flex-col items-center justify-center overflow-hidden relative">
+                    <img id="proof-img-preview" src="" class="hidden w-full h-full object-cover">
+                    <div id="proof-placeholder" class="text-center p-4">
+                        <i class="fa-solid fa-cloud-arrow-up text-4xl text-slate-500 mb-2"></i>
+                        <p class="text-xs text-slate-400 font-bold">Chọn hoặc tải ảnh bằng chứng lên</p>
+                    </div>
+                </div>
+
+                <input type="file" id="proof-file-input" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+                
+                <div class="flex gap-3">
+                    <button onclick="document.getElementById('proof-file-input').click()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-3 px-4 rounded-xl text-sm border border-slate-700 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-file-image"></i> Chọn Ảnh
+                    </button>
+                    <button id="btn-save-proof" onclick="saveTaskProof()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30">
+                        <i class="fa-solid fa-check"></i> Xác Nhận & Khóa
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL TRANG CÁ NHÂN / THỐNG KÊ -->
+    <div id="profile-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="bg-slate-900 rounded-3xl border border-slate-700 max-w-md w-full p-6 shadow-2xl text-center">
+            <div class="w-20 h-20 rounded-full bg-indigo-600/30 text-indigo-400 border-2 border-indigo-500 flex items-center justify-center text-4xl mx-auto mb-4">
+                <i class="fa-solid fa-user-gear"></i>
+            </div>
+            <h3 id="modal-profile-username" class="text-2xl font-black text-white">---</h3>
+            <p id="modal-profile-userid" class="text-xs font-mono font-bold text-indigo-400 mb-6">ID: ---</p>
+
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700">
+                    <span class="block text-2xl font-black text-white" id="stat-total-tasks">0</span>
+                    <span class="text-xs font-bold text-slate-400">Tổng Task Đã Tạo</span>
+                </div>
+                <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700">
+                    <span class="block text-2xl font-black text-emerald-400" id="stat-completed-tasks">0</span>
+                    <span class="text-xs font-bold text-slate-400">Đã Hoàn Thành</span>
+                </div>
+            </div>
+
+            <button onclick="closeProfileModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-3.5 rounded-xl border border-slate-700">
+                Đóng
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl border border-slate-700 font-bold flex items-center gap-3 transition-all duration-300 transform translate-y-20 opacity-0 z-50">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-xl"></i>
+        <span id="toast-message">Thông báo...</span>
+    </div>
+
+    <!-- Firebase Script Modular Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Application Context & Fallbacks
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'todomaster-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : {
+                apiKey: "AIzaSyDemoConfigForTestingOnly1234567",
+                authDomain: "demo-app.firebaseapp.com",
+                projectId: "demo-app",
+                storageBucket: "demo-app.appspot.com",
+                messagingSenderId: "123456789",
+                appId: "1:123456789:web:abcdef123456"
+            };
+
+        // Initialize Firebase
+        let app, auth, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        } catch (e) {
+            console.warn("Firebase initialization notice:", e);
+        }
+
+        // Global State
+        window.db = db;
+        window.auth = auth;
+        window.appId = appId;
+
+        window.currentUserData = null; // { username, userId, createdTime }
+        window.tasks = [];
+        window.activeProofTaskId = null;
+        window.selectedProofImageBase64 = null;
+
+        // Authenticate User First (RULE 3 compliance)
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.log("Auth fallback mode enabled:", err);
+            }
+
+            // Check stored local user profile or prompt registration
+            const savedUser = localStorage.getItem('app_user_profile');
+            if (savedUser) {
+                try {
+                    window.currentUserData = JSON.parse(savedUser);
+                    updateUserUI();
+                    subscribeToTasks();
+                } catch (e) {
+                    showUserInitModal();
+                }
+            } else {
+                showUserInitModal();
+            }
+        }
+
+        // Generate Random Professional User ID (e.g. USR-7X9B2K)
+        function generateUserId() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let result = '';
+            for (let i = 0; i < 6; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return `USR-${result}`;
+        }
+
+        // Register New Unique Username
+        window.handleRegisterUser = async function(e) {
+            e.preventDefault();
+            const input = document.getElementById('register-username-input');
+            const errorMsg = document.getElementById('username-error-msg');
+            const btn = document.getElementById('btn-submit-register');
+
+            const username = input.value.trim();
+            if (!username) return;
+
+            errorMsg.classList.add('hidden');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang kiểm tra...';
+
+            try {
+                // Check username uniqueness in Firestore public collection
+                // Path: /artifacts/{appId}/public/data/users
+                const usersColRef = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+                const querySnapshot = await getDocs(usersColRef);
+                
+                let isDuplicate = false;
+                querySnapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    if (data.username && data.username.toLowerCase() === username.toLowerCase()) {
+                        isDuplicate = true;
+                    }
+                });
+
+                if (isDuplicate) {
+                    errorMsg.innerText = "Tên này đã tồn tại! Vui lòng chọn tên khác.";
+                    errorMsg.classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Bắt Đầu Sử Dụng';
+                    return;
+                }
+
+                // Create User Object
+                const newUserId = generateUserId();
+                const userObj = {
+                    username: username,
+                    userId: newUserId,
+                    createdTime: Date.now()
+                };
+
+                // Save to Firestore
+                const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', newUserId);
+                await setDoc(userDocRef, userObj);
+
+                // Save to localStorage
+                localStorage.setItem('app_user_profile', JSON.stringify(userObj));
+                window.currentUserData = userObj;
+
+                updateUserUI();
+                hideUserInitModal();
+                subscribeToTasks();
+                showToast(`Chào mừng ${username}! ID của bạn là ${newUserId}`);
+
+            } catch (err) {
+                console.error("Register Error:", err);
+                // Fallback offline mode if Firestore connection blocked
+                const fallbackUserId = generateUserId();
+                const fallbackObj = { username: username, userId: fallbackUserId, createdTime: Date.now() };
+                localStorage.setItem('app_user_profile', JSON.stringify(fallbackObj));
+                window.currentUserData = fallbackObj;
+                updateUserUI();
+                hideUserInitModal();
+                renderTasks();
+                showToast("Đã lưu chế độ cá nhân!");
+            }
+        };
+
+        function updateUserUI() {
+            if (!window.currentUserData) return;
+            document.getElementById('display-username').innerText = window.currentUserData.username;
+            document.getElementById('display-userid-badge').innerText = `ID: ${window.currentUserData.userId}`;
+            document.getElementById('modal-profile-username').innerText = window.currentUserData.username;
+            document.getElementById('modal-profile-userid').innerText = `ID: ${window.currentUserData.userId}`;
+        }
+
+        // Real-time Firestore Subscription for Tasks
+        function subscribeToTasks() {
+            if (!window.currentUserData) return;
+
+            try {
+                // Rule 1: /artifacts/{appId}/public/data/tasks
+                const tasksColRef = collection(db, 'artifacts', appId, 'public', 'data', 'tasks');
+
+                // Rule 2: Simple query without complex compound filtering
+                onSnapshot(tasksColRef, (snapshot) => {
+                    const loadedTasks = [];
+                    const myUserId = window.currentUserData.userId;
+
+                    snapshot.forEach(docSnap => {
+                        const data = docSnap.data();
+                        // Filter in JS memory for current user tasks
+                        if (data.userId === myUserId) {
+                            loadedTasks.push({ id: docSnap.id, ...data });
+                        }
+                    });
+
+                    // Sort in memory by timestamp descending
+                    loadedTasks.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+                    window.tasks = loadedTasks;
+                    renderTasks();
+                }, (error) => {
+                    console.warn("Firestore snapshot notice:", error);
+                    loadLocalTasksFallback();
+                });
+            } catch (e) {
+                loadLocalTasksFallback();
+            }
+        }
+
+        function loadLocalTasksFallback() {
+            const saved = localStorage.getItem(`tasks_${window.currentUserData.userId}`);
+            window.tasks = saved ? JSON.parse(saved) : [];
+            renderTasks();
+        }
+
+        function saveLocalTasksFallback() {
+            localStorage.setItem(`tasks_${window.currentUserData.userId}`, JSON.stringify(window.tasks));
+        }
+
+        // Add Task
+        window.handleAddTask = async function(e) {
+            e.preventDefault();
+            const input = document.getElementById('task-input');
+            const text = input.value.trim();
+            if (!text || !window.currentUserData) return;
+
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+            const taskId = `TASK-${dateStr}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+
+            const newTask = {
+                userId: window.currentUserData.userId,
+                username: window.currentUserData.username,
+                text: text,
+                completed: false,
+                proofImage: null,
+                dateStr: dateStr,
+                timestamp: Date.now()
+            };
+
+            try {
+                const taskDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId);
+                await setDoc(taskDocRef, newTask);
+            } catch (err) {
+                // Fallback local append
+                window.tasks.unshift({ id: taskId, ...newTask });
+                saveLocalTasksFallback();
+                renderTasks();
+            }
+
+            input.value = '';
+            showToast('Đã thêm task mới lên hệ thống!');
+        };
+
+        // Toggle / Delete Task
+        window.deleteTask = async function(taskId) {
+            try {
+                const taskDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId);
+                await deleteDoc(taskDocRef);
+            } catch (e) {
+                window.tasks = window.tasks.filter(t => t.id !== taskId);
+                saveLocalTasksFallback();
+                renderTasks();
+            }
+            showToast('Đã xóa công việc!');
+        };
+
+        window.renderTasks = function() {
+            const listEl = document.getElementById('task-list');
+            const emptyEl = document.getElementById('empty-state');
+            listEl.innerHTML = '';
+
+            const currentTasks = window.tasks || [];
+
+            if (currentTasks.length === 0) {
+                emptyEl.classList.remove('hidden');
+            } else {
+                emptyEl.classList.add('hidden');
+
+                currentTasks.forEach(task => {
+                    const li = document.createElement('li');
+                    li.className = `group bg-slate-800/90 rounded-3xl p-5 md:p-6 border-2 ${
+                        task.completed ? 'border-emerald-500/40 bg-emerald-950/20' : 'border-slate-700/80'
+                    } flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all hover:border-indigo-500/60 shadow-lg`;
+
+                    li.innerHTML = `
+                        <div class="flex items-center gap-4 flex-1 select-none">
+                            <button onclick="openProofModalForTask('${task.id}')" class="w-10 h-10 rounded-xl flex items-center justify-center text-xl font-bold transition-all ${
+                                task.completed 
+                                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' 
+                                : 'border-2 border-slate-600 hover:border-emerald-400 text-transparent'
+                            }">
+                                <i class="fa-solid fa-check"></i>
+                            </button>
+                            <div class="flex-1">
+                                <span class="text-2xl md:text-3xl font-extrabold tracking-tight ${
+                                    task.completed ? 'line-through text-slate-400' : 'text-white'
+                                }">
+                                    ${escapeHtml(task.text)}
+                                </span>
+                                ${task.proofImage ? '<div class="mt-1 flex items-center gap-2 text-xs text-emerald-400 font-bold"><i class="fa-solid fa-square-check"></i> Đã đính kèm ảnh bằng chứng</div>' : ''}
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-700/60">
+                            <button onclick="openProofModalForTask('${task.id}')" class="px-4 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold transition-all flex items-center gap-1.5 border border-slate-600">
+                                <i class="fa-solid fa-camera"></i> ${task.completed ? 'Xem Ảnh' : 'Duyệt Ảnh'}
+                            </button>
+                            <button onclick="deleteTask('${task.id}')" class="w-10 h-10 rounded-xl bg-slate-700/60 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 flex items-center justify-center transition-all">
+                                <i class="fa-regular fa-trash-can"></i>
+                            </button>
+                        </div>
+                    `;
+                    listEl.appendChild(li);
+                });
+            }
+
+            // Update stats
+            const total = currentTasks.length;
+            const completed = currentTasks.filter(t => t.completed).length;
+            document.getElementById('task-stats').innerText = `${completed}/${total} task đã hoàn thành`;
+            document.getElementById('user-stats-summary').innerText = `Tổng task: ${total} | Hoàn thành: ${completed}`;
+            document.getElementById('stat-total-tasks').innerText = total;
+            document.getElementById('stat-completed-tasks').innerText = completed;
+        };
+
+        window.openProofModalForTask = function(taskId) {
+            const task = window.tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            window.activeProofTaskId = taskId;
+            window.selectedProofImageBase64 = task.proofImage || null;
+
+            document.getElementById('proof-task-title').innerText = `Công việc: "${task.text}"`;
+            const previewImg = document.getElementById('proof-img-preview');
+            const placeholder = document.getElementById('proof-placeholder');
+
+            if (task.proofImage) {
+                previewImg.src = task.proofImage;
+                previewImg.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            } else {
+                previewImg.src = '';
+                previewImg.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+            }
+
+            const modal = document.getElementById('proof-modal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+        };
+
+        window.closeProofModal = function() {
+            const modal = document.getElementById('proof-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            window.activeProofTaskId = null;
+        };
+
+        window.handleFileSelect = function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                window.selectedProofImageBase64 = evt.target.result;
+                const previewImg = document.getElementById('proof-img-preview');
+                const placeholder = document.getElementById('proof-placeholder');
+                previewImg.src = evt.target.result;
+                previewImg.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.saveTaskProof = async function() {
+            if (!window.activeProofTaskId) return;
+
+            const taskId = window.activeProofTaskId;
+            const updatedData = {
+                completed: true,
+                proofImage: window.selectedProofImageBase64 || null
+            };
+
+            try {
+                const taskDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId);
+                await updateDoc(taskDocRef, updatedData);
+            } catch (err) {
+                const t = window.tasks.find(item => item.id === taskId);
+                if (t) {
+                    t.completed = true;
+                    t.proofImage = window.selectedProofImageBase64;
+                    saveLocalTasksFallback();
+                    renderTasks();
+                }
+            }
+
+            closeProofModal();
+            showToast('Đã xác nhận hoàn thành công việc!');
+        };
+
+        window.openPrintModal = function() {
+            if (!window.tasks || window.tasks.length === 0) {
+                showToast('Hãy thêm ít nhất 1 công việc trước khi xuất ảnh in!', 'error');
+                return;
+            }
+
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            
+            document.getElementById('print-card-username').innerText = window.currentUserData.username;
+            document.getElementById('print-card-userid').innerText = window.currentUserData.userId;
+            document.getElementById('print-card-date').querySelector('span').innerText = dateStr;
+            document.getElementById('print-card-timestamp').innerText = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            
+            const taskDayId = `DAY-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+            document.getElementById('print-card-task-id').innerText = taskDayId;
+
+            // Render Task Items in Printable Card
+            const printList = document.getElementById('print-task-list');
+            printList.innerHTML = '';
+
+            window.tasks.forEach((task) => {
+                const item = document.createElement('div');
+                item.className = 'flex items-start gap-3 py-1 border-b border-black/10 last:border-none';
+                item.innerHTML = `
+                    <div class="w-5 h-5 rounded border-2 border-black mt-1 flex items-center justify-center flex-shrink-0 font-black text-black">
+                        ${task.completed ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
+                    </div>
+                    <span class="text-xl font-extrabold text-black leading-snug ${task.completed ? 'line-through opacity-50' : ''}">
+                        ${escapeHtml(task.text)}
+                    </span>
+                `;
+                printList.appendChild(item);
+            });
+
+            // Generate Dual QR Codes
+            generateDualQRCodes(taskDayId);
+
+            // Open Modal
+            const modal = document.getElementById('print-modal');
+            const container = document.getElementById('modal-container');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            container.classList.remove('scale-95');
+            container.classList.add('scale-100');
+        };
+
+        function generateDualQRCodes(taskDayId) {
+            const qrProfileContainer = document.getElementById('qrcode-profile');
+            const qrVerifyContainer = document.getElementById('qrcode-verify');
+            
+            qrProfileContainer.innerHTML = '';
+            qrVerifyContainer.innerHTML = '';
+
+            const baseUrl = window.location.origin + window.location.pathname;
+
+            // QR 1: PROFILE LINK (e.g. #profile=USR-8F3A2B)
+            const profileUrl = `${baseUrl}#profile=${window.currentUserData.userId}`;
+            new QRCode(qrProfileContainer, {
+                text: profileUrl,
+                width: 110,
+                height: 110,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.L
+            });
+
+            // QR 2: PROOF & TASK VERIFICATION LINK (e.g. #verify=USR-8F3A2B&day=DAY-20261002)
+            const verifyUrl = `${baseUrl}#verify=${window.currentUserData.userId}&day=${taskDayId}`;
+            new QRCode(qrVerifyContainer, {
+                text: verifyUrl,
+                width: 110,
+                height: 110,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.L
+            });
+        }
+
+        window.closePrintModal = function() {
+            const modal = document.getElementById('print-modal');
+            const container = document.getElementById('modal-container');
+            container.classList.remove('scale-100');
+            container.classList.add('scale-95');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        };
+
+        window.downloadCardAsImage = function() {
+            const card = document.getElementById('printable-card');
+            showToast('Đang tạo ảnh chất lượng cao...', 'info');
+
+            html2canvas(card, {
+                scale: 3,
+                backgroundColor: '#ffffff',
+                useCORS: true,
+                logging: false
+            }).then(canvas => {
+                const image = canvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                const now = new Date();
+                link.href = image;
+                link.download = `TodoCard-${window.currentUserData.userId}-${now.getFullYear()}${now.getMonth()+1}${now.getDate()}.png`;
+                link.click();
+                showToast('Đã tải ảnh về thành công!');
+            }).catch(err => {
+                showToast('Lỗi khi tạo file ảnh!', 'error');
+            });
+        };
+
+        window.triggerPrintDialog = function() {
+            window.print();
+        };
+
+        window.openProfileModal = function() {
+            const modal = document.getElementById('profile-modal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+        };
+
+        window.closeProfileModal = function() {
+            const modal = document.getElementById('profile-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        };
+
+        function showUserInitModal() {
+            const modal = document.getElementById('user-init-modal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function hideUserInitModal() {
+            const modal = document.getElementById('user-init-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        // Clock & Date updates
+        function initClock() {
+            const update = () => {
+                const now = new Date();
+                const options = { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' };
+                let dateStr = now.toLocaleDateString('vi-VN', options);
+                dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+                document.getElementById('current-date').innerText = dateStr;
+
+                const h = String(now.getHours()).padStart(2, '0');
+                const m = String(now.getMinutes()).padStart(2, '0');
+                const s = String(now.getSeconds()).padStart(2, '0');
+                document.getElementById('current-time').innerText = `${h}:${m}:${s}`;
+            };
+            update();
+            setInterval(update, 1000);
+        }
+
+        // Toast Helper
+        window.showToast = function(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMsg.innerText = message;
+            if (type === 'error') {
+                toastIcon.className = 'fa-solid fa-circle-exclamation text-rose-400 text-xl';
+            } else if (type === 'info') {
+                toastIcon.className = 'fa-solid fa-circle-info text-sky-400 text-xl';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400 text-xl';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3200);
+        };
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Initialize application
+        window.addEventListener('DOMContentLoaded', () => {
+            initClock();
+            initAuth();
+            
+            // Check hash links (QR scans)
+            if (window.location.hash.includes('#profile=')) {
+                setTimeout(() => openProfileModal(), 800);
+            }
+        });
+    </script>
+</body>
+</html>
