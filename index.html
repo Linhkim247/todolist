@@ -3,266 +3,374 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Todo List Chữ Lớn - In Giấy Nhỏ</title>
+  <title>Todo List Chữ Lớn - Premium</title>
   
   <!-- Tailwind CSS & Font Awesome -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
-  <!-- Firebase Compat SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-  
-  <!-- QRCode.js & html2canvas -->
+  <!-- QRCode.js, html2canvas & html2pdf.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800;900&display=swap');
     body {
       font-family: 'Lexend', sans-serif;
     }
     .print-card-shadow {
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
     }
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   </style>
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col">
+<body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col selection:bg-indigo-200 selection:text-indigo-900 relative">
+
+  <!-- CUSTOM TOAST NOTIFICATION -->
+  <div id="toastNotification" class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 transform -translate-y-20 opacity-0 pointer-events-none flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl font-bold border-2">
+    <i id="toastIcon" class="fa-solid"></i>
+    <span id="toastMessage"></span>
+  </div>
+
+  <!-- CUSTOM CONFIRM MODAL -->
+  <div id="confirmModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center transform scale-95 transition-transform duration-300" id="confirmModalCard">
+      <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 shadow-inner">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h3 class="text-xl font-black text-slate-900 mb-2">Xác Nhận Hành Động</h3>
+      <p id="confirmMessage" class="text-sm text-slate-600 mb-6 leading-relaxed font-medium"></p>
+      <div class="flex gap-3">
+        <button id="cancelConfirmBtn" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl transition-all active:scale-95">Hủy Bỏ</button>
+        <button id="acceptConfirmBtn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95">Xác Nhận</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: TRA CỨU TASK BẰNG ID -->
+  <div id="taskSearchModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[85] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+    <div class="bg-white rounded-[2rem] p-6 max-w-md w-full shadow-2xl relative transform scale-95 transition-transform duration-300" id="taskSearchModalCard">
+      <button id="closeSearchModalBtn" class="absolute top-4 right-4 w-9 h-9 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-200 font-bold transition-all"><i class="fa-solid fa-xmark"></i></button>
+      
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg font-bold">
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </div>
+        <div>
+          <h3 class="text-lg font-black text-slate-900 leading-tight">Tra Cứu ID Task</h3>
+          <p class="text-xs text-slate-500 font-medium">Nhập mã ID task để xem minh chứng & trạng thái</p>
+        </div>
+      </div>
+
+      <form id="searchTaskForm" class="flex gap-2 mb-4">
+        <input type="text" id="searchInputTaskId" placeholder="Ví dụ: CD-TK-8A2F" required class="flex-1 bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 rounded-xl px-4 py-3 font-mono font-bold text-sm focus:outline-none uppercase">
+        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-3 rounded-xl transition-all shadow-md active:scale-95 shrink-0"><i class="fa-solid fa-search"></i> Tìm</button>
+      </form>
+
+      <div id="searchResultsArea" class="hidden">
+        <!-- Results injected dynamically -->
+      </div>
+    </div>
+  </div>
 
   <!-- APP CONTAINER -->
-  <div class="max-w-3xl mx-auto w-full p-4 md:p-6 flex-1 flex flex-col justify-between">
+  <div class="max-w-3xl mx-auto w-full p-3 md:p-6 flex-1 flex flex-col justify-between relative z-10">
     
     <!-- MAIN APPLICATION SCREEN -->
     <div id="mainScreen" class="hidden flex-1 flex flex-col">
-      <!-- Top Info Bar -->
-      <header class="bg-white rounded-2xl p-5 mb-5 shadow-sm border border-slate-200">
-        <div class="flex flex-col md:flex-row justify-between items-center gap-3">
+      
+      <!-- Top Info Bar with Custom Logo -->
+      <header class="glass-panel rounded-[2rem] p-4 md:p-5 mb-5 shadow-sm border border-white/50 flex flex-col md:flex-row justify-between items-center gap-4 relative overflow-hidden">
+        <div class="flex items-center gap-4 w-full md:w-auto">
+          <img src="https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/9bf2798ebc685b110b8f3c4505e68211~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=c823af9b&x-expires=1791122400&x-signature=DV6ieGSTfaQo1DRjs97j8%2FVFdqo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my2" class="w-16 h-16 rounded-full border-[3px] border-indigo-100 shadow-md object-cover flex-shrink-0" alt="Logo">
           <div>
-            <span class="text-xs font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Ngày & Giờ Hệ Thống</span>
-            <h1 id="currentDateText" class="text-xl md:text-2xl font-black text-slate-800 mt-1">--/--/----</h1>
+            <span class="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">Hôm Nay</span>
+            <h1 id="currentDateText" class="text-lg md:text-xl font-black text-slate-800 mt-1 leading-tight">--/--/----</h1>
           </div>
+        </div>
+
+        <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+          <button id="openSearchModalBtn" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3.5 py-2.5 rounded-2xl text-xs flex items-center gap-2 border border-indigo-200 transition-all active:scale-95">
+             <i class="fa-solid fa-magnifying-glass"></i> Tra ID Task
+          </button>
+          
           <div class="text-right flex flex-col items-end">
-            <span id="userNameDisplay" class="text-lg font-extrabold text-slate-900">--</span>
-            <span id="userIdDisplay" class="text-xs font-mono font-bold bg-slate-800 text-amber-400 px-2 py-0.5 rounded mt-0.5">ID: ------</span>
+             <span id="userNameDisplay" class="text-lg font-black text-slate-900 tracking-tight">--</span>
+             <span id="userIdDisplay" class="text-[11px] font-mono font-bold bg-slate-900 text-amber-400 px-2 py-0.5 rounded-md mt-0.5 shadow-sm">ID: ------</span>
           </div>
         </div>
       </header>
 
       <!-- Add Task Form -->
-      <section class="bg-white rounded-2xl p-4 md:p-6 shadow-sm border border-slate-200 mb-6">
+      <section class="bg-white rounded-[2rem] p-4 md:p-6 shadow-sm border border-slate-100 mb-6">
         <form id="addTaskForm" class="flex flex-col md:flex-row gap-3">
-          <input type="text" id="taskInput" placeholder="Nhập công việc cần làm chữ lớn..." 
-                 class="flex-1 bg-slate-50 border-2 border-slate-200 focus:border-indigo-600 rounded-xl px-5 py-4 text-xl font-bold focus:outline-none transition-all placeholder:text-slate-400 placeholder:font-normal" required>
-          <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xl font-bold px-8 py-4 rounded-xl transition-all shadow-lg shadow-indigo-200 active:scale-95 flex items-center justify-center gap-2">
+          <input type="text" id="taskInput" placeholder="Nhập công việc cần làm..." 
+                 class="flex-1 bg-slate-50 border-2 border-slate-100 focus:border-indigo-400 focus:bg-white rounded-2xl px-5 py-4 text-lg font-bold focus:outline-none transition-all placeholder:text-slate-400 placeholder:font-semibold" required>
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-bold px-8 py-4 rounded-2xl transition-all shadow-xl shadow-indigo-600/20 active:scale-95 flex items-center justify-center gap-2">
             <i class="fa-solid fa-plus"></i> Thêm
           </button>
         </form>
       </section>
 
       <!-- Task List Area -->
-      <section class="flex-1 mb-6">
-        <div class="flex justify-between items-center mb-3 px-1">
-          <h2 class="text-lg font-bold text-slate-600 uppercase tracking-wider">Danh Sách Hôm Nay</h2>
-          <span id="taskCountBadge" class="text-xs font-bold bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">0 Công Việc</span>
+      <section class="flex-1 mb-8">
+        <div class="flex justify-between items-center mb-4 px-2">
+          <h2 class="text-sm font-black text-slate-500 uppercase tracking-widest">Danh Sách Hôm Nay</h2>
+          <span id="taskCountBadge" class="text-xs font-black bg-indigo-100 text-indigo-700 px-3 py-1 rounded-lg">0 Task</span>
         </div>
         <div id="taskList" class="space-y-3">
-          <!-- Task Item Template injected by JS -->
+          <!-- Task items injected here -->
         </div>
       </section>
 
-      <!-- Print Action Bar -->
-      <div class="sticky bottom-4 z-10">
-        <button id="openPrintModalBtn" class="w-full bg-slate-900 hover:bg-black text-white text-xl md:text-2xl font-black py-5 px-6 rounded-2xl shadow-xl transition-all transform active:scale-98 flex items-center justify-center gap-3 border-2 border-slate-800">
-          <i class="fa-solid fa-print text-amber-400"></i> IN / XUẤT ẢNH GIẤY NHỎ
+      <!-- Print Action Bar (Sticky) -->
+      <div class="sticky bottom-4 z-10 pb-4">
+        <button id="openPrintModalBtn" class="w-full bg-slate-900 hover:bg-black text-white text-lg md:text-xl font-black py-4 md:py-5 px-6 rounded-2xl shadow-2xl shadow-slate-900/30 transition-all transform hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 border border-slate-800">
+          <i class="fa-solid fa-file-pdf text-amber-400"></i> XUẤT FILE PDF SẮC NÉT
         </button>
       </div>
     </div>
 
-    <!-- SECRET / PUBLIC VIEW CONTAINER (Chỉ xuất hiện khi Quét Mã QR) -->
-    <div id="publicViewContainer" class="hidden flex-1 flex flex-col bg-white rounded-2xl p-6 shadow-md border border-slate-200">
-      <div class="flex justify-between items-center border-b pb-4 mb-6">
-        <div>
-          <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">Kênh Tra Cứu QR Công Khai</span>
-          <h2 id="publicUserName" class="text-2xl font-black text-slate-900 mt-1">--</h2>
-          <p id="publicUserId" class="text-sm font-mono text-slate-500 font-bold">ID: ------</p>
+    <!-- SECRET / PUBLIC VIEW CONTAINER (QR Scanner Profile & Calendar) -->
+    <div id="publicViewContainer" class="hidden flex-1 flex flex-col bg-white rounded-[2rem] p-5 md:p-8 shadow-xl border border-slate-100 min-h-[80vh]">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b-2 border-slate-100 pb-5 mb-6 gap-4">
+        <div class="flex items-center gap-4">
+          <img src="https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/9bf2798ebc685b110b8f3c4505e68211~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=c823af9b&x-expires=1791122400&x-signature=DV6ieGSTfaQo1DRjs97j8%2FVFdqo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my2" class="w-14 h-14 rounded-full border-2 border-emerald-100 object-cover" alt="Logo">
+          <div>
+            <span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md uppercase tracking-wider">Hồ Sơ Tra Cứu</span>
+            <h2 id="publicUserName" class="text-2xl font-black text-slate-900 mt-1">--</h2>
+            <p id="publicUserId" class="text-xs font-mono text-slate-500 font-bold">ID: ------</p>
+          </div>
         </div>
-        <a href="https://linhkim247.github.io/todolist/" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-3 rounded-lg transition-all">
-          <i class="fa-solid fa-house"></i> Về Trang Chủ
-        </a>
-      </div>
-
-      <!-- Public View Mode Header -->
-      <div id="publicViewTitle" class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">
-        <i class="fa-solid fa-calendar-days text-indigo-600"></i> <span id="publicViewTitleText">Lịch Hoạt Động & Kiểm Chứng</span>
+        <div class="flex gap-2 w-full md:w-auto">
+          <button id="publicSearchBtn" class="flex-1 md:flex-none bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95 text-xs">
+            <i class="fa-solid fa-magnifying-glass"></i> Tra Task ID
+          </button>
+          <button onclick="window.location.reload()" class="flex-1 md:flex-none bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-5 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95 text-xs">
+            <i class="fa-solid fa-house"></i> Trang Chủ
+          </button>
+        </div>
       </div>
 
       <!-- Profile Summary Cards -->
-      <div id="profileSummary" class="grid grid-cols-3 gap-3 mb-6">
-        <div class="bg-indigo-50 p-3 rounded-xl text-center">
-          <div class="text-xs font-bold text-indigo-600 uppercase">Tổng Task</div>
-          <div id="statTotal" class="text-2xl font-black text-indigo-900">0</div>
+      <div id="profileSummary" class="grid grid-cols-3 gap-2 md:gap-4 mb-6">
+        <div class="bg-indigo-50/50 p-4 rounded-2xl text-center border border-indigo-50">
+          <div class="text-[10px] md:text-xs font-black text-indigo-500 uppercase tracking-widest">Tổng Task</div>
+          <div id="statTotal" class="text-2xl md:text-3xl font-black text-indigo-900 mt-1">0</div>
         </div>
-        <div class="bg-emerald-50 p-3 rounded-xl text-center">
-          <div class="text-xs font-bold text-emerald-600 uppercase">Hoàn Thành</div>
-          <div id="statCompleted" class="text-2xl font-black text-emerald-900">0</div>
+        <div class="bg-emerald-50/50 p-4 rounded-2xl text-center border border-emerald-50">
+          <div class="text-[10px] md:text-xs font-black text-emerald-500 uppercase tracking-widest">Đã Hoàn Thành</div>
+          <div id="statCompleted" class="text-2xl md:text-3xl font-black text-emerald-900 mt-1">0</div>
         </div>
-        <div class="bg-amber-50 p-3 rounded-xl text-center">
-          <div class="text-xs font-bold text-amber-600 uppercase">Tỷ Lệ</div>
-          <div id="statPercent" class="text-2xl font-black text-amber-900">0%</div>
+        <div class="bg-amber-50/50 p-4 rounded-2xl text-center border border-amber-50">
+          <div class="text-[10px] md:text-xs font-black text-amber-500 uppercase tracking-widest">Tỷ Lệ</div>
+          <div id="statPercent" class="text-2xl md:text-3xl font-black text-amber-900 mt-1">0%</div>
         </div>
       </div>
 
-      <!-- Content Area for Calendar or Specific Date Verify -->
+      <!-- Calendar Legend -->
+      <div class="flex items-center justify-center gap-4 md:gap-6 bg-slate-50 p-3 rounded-2xl border border-slate-100 mb-6 text-xs font-bold text-slate-600 flex-wrap">
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span> Đã Xong Hết</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span> Chưa Xong</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-black inline-block"></span> Không Có Task</span>
+      </div>
+
+      <!-- Dynamic Content Area (Calendar View) -->
       <div id="publicContentArea" class="flex-1">
         <!-- Injected dynamically -->
       </div>
     </div>
-
   </div>
 
-  <!-- MODAL: NAME REGISTRATION (Bắt buộc khi tạo mới) -->
-  <div id="loginModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl border border-slate-100 text-center">
-      <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4">
-        <i class="fa-solid fa-user-plus"></i>
-      </div>
-      <h2 class="text-2xl font-black text-slate-900 mb-2">Tạo Tài Khoản In Task</h2>
-      <p class="text-sm text-slate-500 mb-6">Nhập tên người dùng của bạn để bắt đầu tạo danh sách công việc & mã in cá nhân.</p>
-      
-      <form id="loginForm" class="space-y-4">
-        <div class="text-left">
-          <label class="text-xs font-bold text-slate-600 uppercase ml-1">Tên Người Dùng</label>
-          <input type="text" id="userNameInput" placeholder="Ví dụ: CanhDev..." required 
-                 class="w-full mt-1 bg-slate-50 border-2 border-slate-200 focus:border-indigo-600 rounded-xl p-4 text-lg font-bold focus:outline-none">
-          <p id="nameErrorMsg" class="hidden text-xs text-rose-600 font-bold mt-1.5 flex items-center gap-1">
-            <i class="fa-solid fa-triangle-exclamation"></i> Tên này đã được sử dụng! Vui lòng đổi tên khác.
-          </p>
-        </div>
+  <!-- MODAL: DAY DETAIL POPUP (CALENDAR CLICK) -->
+  <div id="dayDetailModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[88] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 cursor-pointer">
+    <div class="bg-white rounded-[2rem] p-5 md:p-7 max-w-lg w-full max-h-[85vh] flex flex-col shadow-2xl relative transform scale-95 transition-transform duration-300 cursor-default" id="dayDetailModalCard">
+      <button id="closeDayDetailBtn" class="absolute top-4 right-4 w-9 h-9 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-200 font-bold transition-all"><i class="fa-solid fa-xmark"></i></button>
 
-        <button type="submit" id="submitNameBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg p-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
-          <span>Xác Nhận & Tiếp Tục</span> <i class="fa-solid fa-arrow-right"></i>
-        </button>
-      </form>
+      <div class="mb-4 pr-8">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest">
+            <i class="fa-regular fa-calendar-check text-sm"></i> Chi Tiết Công Việc
+          </div>
+          <span id="dayDetailTotalTasks" class="text-xs font-black bg-indigo-100 text-indigo-700 px-2 py-1 rounded-lg">0 Task</span>
+        </div>
+        <h3 class="text-xl font-black text-slate-900 mt-1.5" id="dayDetailTitle">Ngày --/--/----</h3>
+        <p class="text-[11px] font-mono font-bold text-slate-500 mt-1 bg-slate-100 inline-block px-2 py-0.5 rounded" id="dayDetailId">ID Ngày Tổng: ------</p>
+      </div>
+
+      <div id="dayDetailTasksList" class="flex-1 overflow-y-auto space-y-4 pr-1">
+        <!-- Day tasks with public proof images injected here -->
+      </div>
     </div>
   </div>
 
-  <!-- MODAL: PRINT PREVIEW & EXPORT CARD -->
-  <div id="printModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white rounded-3xl p-5 md:p-6 max-w-md w-full my-8 shadow-2xl">
-      <div class="flex justify-between items-center mb-4 pb-2 border-b">
-        <h3 class="font-black text-lg text-slate-800">Xem Trước Thẻ In Giấy Nhỏ</h3>
-        <button id="closePrintModalBtn" class="text-slate-400 hover:text-slate-700 text-xl font-bold p-1"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-
-      <!-- CARD TO BE PRINTED/SAVED AS IMAGE -->
-      <div id="printCardArea" class="bg-white border-2 border-slate-900 rounded-2xl p-5 text-slate-900 print-card-shadow">
+  <!-- MODAL: SMART LOGIN / REGISTRATION -->
+  <div id="loginModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4 transition-opacity">
+    <div class="bg-white rounded-[2rem] p-6 md:p-8 max-w-md w-full shadow-2xl border border-white/20 text-center relative overflow-hidden">
+      <div class="absolute -top-10 -right-10 w-32 h-32 bg-indigo-50 rounded-full blur-2xl"></div>
+      <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-emerald-50 rounded-full blur-2xl"></div>
+      
+      <div class="relative z-10">
+        <img src="https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/9bf2798ebc685b110b8f3c4505e68211~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=c823af9b&x-expires=1791122400&x-signature=DV6ieGSTfaQo1DRjs97j8%2FVFdqo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my2" class="w-20 h-20 mx-auto rounded-full border-4 border-white shadow-lg object-cover mb-4" alt="Logo">
         
-        <!-- Print Header & Custom Zoomed Logo -->
-        <div class="flex flex-col items-center border-b-2 border-slate-900 pb-4 mb-4">
-          <!-- Logo CSS Zoom Container (Hides outer ring/leaves/text) -->
-          <div class="w-[85px] h-[85px] relative overflow-hidden rounded-full border-2 border-slate-900 bg-white shadow-sm mb-2">
-            <img src="Screenshot%202024-10-01%20205119.jpg" alt="Logo" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320%] max-w-none object-cover">
+        <h2 class="text-2xl font-black text-slate-900 mb-2">Đăng Nhập Todo</h2>
+        <p class="text-sm text-slate-500 mb-6 font-medium">Nhập Tên hoặc ID của bạn. Hệ thống sẽ tự động đăng nhập hoặc tạo mới nếu chưa có.</p>
+        
+        <form id="loginForm" class="space-y-5">
+          <div class="text-left relative">
+            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+              <i class="fa-solid fa-user"></i>
+            </div>
+            <input type="text" id="userNameInput" placeholder="Ví dụ: CanhDev hoặc CD12345678" required 
+                   class="w-full bg-slate-50 border-2 border-slate-100 focus:border-indigo-500 focus:bg-white rounded-2xl pl-11 pr-4 py-4 text-lg font-bold focus:outline-none transition-all placeholder:text-slate-400 placeholder:font-medium">
           </div>
-          
+
+          <button type="submit" id="submitNameBtn" class="w-full bg-slate-900 hover:bg-black text-white font-black text-lg py-4 rounded-2xl shadow-xl shadow-slate-900/20 transition-all active:scale-95 flex items-center justify-center gap-2">
+            <span>Vào Ứng Dụng</span> <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PRINT PREVIEW & PDF EXPORT CARD -->
+  <div id="printModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 hidden flex flex-col items-center justify-center p-4 overflow-y-auto cursor-pointer">
+    
+    <div class="w-full max-w-sm flex justify-end mb-2 cursor-default">
+       <button id="closePrintModalBtn" class="bg-white/10 hover:bg-white/20 text-white rounded-full w-10 h-10 flex items-center justify-center backdrop-blur-md transition-all">
+         <i class="fa-solid fa-xmark text-xl"></i>
+       </button>
+    </div>
+
+    <div class="bg-white rounded-3xl p-5 md:p-6 max-w-sm w-full shadow-2xl relative cursor-default" id="printModalCard">
+      <!-- CARD TO BE PRINTED/SAVED AS PDF -->
+      <div id="printCardArea" class="bg-white border-2 border-slate-900 rounded-2xl p-5 text-slate-900 print-card-shadow relative overflow-hidden">
+        
+        <!-- Print Header & Logo -->
+        <div class="flex flex-col items-center border-b-[3px] border-slate-900 pb-4 mb-4">
+          <img src="https://p16-common-sign.tiktokcdn.com/tos-alisg-avt-0068/9bf2798ebc685b110b8f3c4505e68211~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=c823af9b&x-expires=1791122400&x-signature=DV6ieGSTfaQo1DRjs97j8%2FVFdqo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my2" alt="Logo" class="w-[75px] h-[75px] rounded-full border-2 border-slate-900 object-cover mb-2 shadow-sm grayscale-[20%]">
           <div class="text-center">
-            <h2 class="text-xl font-black uppercase tracking-wider">DANH SÁCH CÔNG VIỆC</h2>
-            <p id="printCardDate" class="text-xs font-bold text-slate-700 mt-0.5">--/--/----</p>
+            <h2 class="text-lg font-black uppercase tracking-widest leading-tight">DANH SÁCH<br/>CÔNG VIỆC</h2>
+            <p id="printCardTotalTasks" class="text-[10px] font-black text-indigo-700 mt-1 uppercase tracking-widest bg-indigo-100 inline-block px-2 py-0.5 rounded">Tổng: 0 Task</p>
           </div>
         </div>
 
         <!-- User Info Bar -->
-        <div class="flex justify-between items-center bg-slate-100 p-2.5 rounded-xl border border-slate-300 text-xs font-bold mb-4">
-          <div><span class="text-slate-500">USER:</span> <span id="printCardUserName" class="text-slate-900 font-extrabold">--</span></div>
-          <div class="font-mono bg-slate-900 text-amber-400 px-2 py-0.5 rounded" id="printCardUserId">CD--------</div>
+        <div class="flex justify-between items-center bg-slate-100 p-2.5 rounded-xl border border-slate-300 text-[10px] font-bold mb-5">
+          <div class="truncate mr-2 flex flex-col gap-1">
+            <div><span class="text-slate-500 uppercase">User:</span> <span id="printCardUserName" class="text-slate-900 font-black text-xs">--</span></div>
+            <div><span class="text-slate-500 uppercase">Ngày:</span> <span id="printCardDate" class="text-slate-900 font-black">--/--/----</span></div>
+          </div>
+          <div class="flex flex-col gap-1 items-end shrink-0">
+             <div class="font-mono bg-slate-900 text-amber-400 px-2 py-0.5 rounded" id="printCardUserId">CD--------</div>
+             <div class="font-mono bg-indigo-600 text-white px-2 py-0.5 rounded text-[9px]" id="printCardDailyId">D--------</div>
+          </div>
         </div>
 
         <!-- Task List for Print -->
-        <div id="printTaskList" class="space-y-2 mb-5">
+        <div id="printTaskList" class="space-y-2 mb-6 min-h-[100px]">
           <!-- Injected via JS -->
         </div>
 
         <!-- Dual QR Codes Section -->
-        <div class="border-t-2 border-dashed border-slate-300 pt-4 mt-4">
-          <div class="grid grid-cols-2 gap-3 text-center">
-            
-            <!-- QR 1: User Profile -->
-            <div class="flex flex-col items-center bg-slate-50 p-2 rounded-xl border border-slate-200">
-              <div id="qrProfile" class="w-[110px] h-[110px] bg-white p-1 rounded border border-slate-300 flex items-center justify-center"></div>
-              <span class="text-[10px] font-black uppercase tracking-tighter mt-1.5 text-indigo-700">QR Trang Cá Nhân</span>
+        <div class="border-t-[3px] border-dotted border-slate-300 pt-5 mt-2">
+          <div class="grid grid-cols-2 gap-4 text-center">
+            <div class="flex flex-col items-center">
+              <div id="qrProfile" class="w-[100px] h-[100px] bg-white p-1 rounded-xl border-2 border-slate-300 flex items-center justify-center"></div>
+              <span class="text-[9px] font-black uppercase tracking-tighter mt-2 text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">Hồ Sơ Cá Nhân</span>
             </div>
-
-            <!-- QR 2: Task Verify -->
-            <div class="flex flex-col items-center bg-slate-50 p-2 rounded-xl border border-slate-200">
-              <div id="qrVerify" class="w-[110px] h-[110px] bg-white p-1 rounded border border-slate-300 flex items-center justify-center"></div>
-              <span class="text-[10px] font-black uppercase tracking-tighter mt-1.5 text-emerald-700">QR Kiểm Chứng Task</span>
+            <div class="flex flex-col items-center">
+              <div id="qrVerify" class="w-[100px] h-[100px] bg-white p-1 rounded-xl border-2 border-slate-300 flex items-center justify-center"></div>
+              <span class="text-[9px] font-black uppercase tracking-tighter mt-2 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Kiểm Chứng Ngày</span>
             </div>
-
           </div>
         </div>
 
-        <div class="text-center text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-4">
-          Design for Thermal Print & Notepad
+        <div class="text-center text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-5">
+          Designed for Notepad Print
         </div>
       </div>
 
       <!-- Action Buttons inside Modal -->
       <div class="grid grid-cols-2 gap-3 mt-5">
-        <button id="downloadImgBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-all text-sm flex items-center justify-center gap-2">
-          <i class="fa-solid fa-download"></i> Tải Ảnh PNG
+        <button id="downloadPdfBtn" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-3.5 px-4 rounded-xl transition-all text-sm flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-rose-200">
+          <i class="fa-solid fa-file-pdf"></i> Tải File PDF
         </button>
-        <button id="triggerPrintBtn" class="bg-slate-900 hover:bg-black text-white font-bold py-3 px-4 rounded-xl transition-all text-sm flex items-center justify-center gap-2">
-          <i class="fa-solid fa-print"></i> In Trực Tiếp
+        <button id="triggerPrintBtn" class="bg-slate-900 hover:bg-black text-white font-bold py-3.5 px-4 rounded-xl transition-all text-sm flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-slate-200">
+          <i class="fa-solid fa-print"></i> In Máy Trực Tiếp
         </button>
       </div>
-
     </div>
   </div>
 
   <!-- MODAL: PROOF IMAGE VIEW POPUP -->
-  <div id="proofModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl relative">
-      <button id="closeProofModalBtn" class="absolute top-4 right-4 text-slate-400 hover:text-slate-800 text-2xl font-bold"><i class="fa-solid fa-xmark"></i></button>
-      <h3 class="text-lg font-bold text-slate-900 mb-1" id="proofTaskTitle">Chi Tiết Công Việc</h3>
-      <p class="text-xs font-mono font-bold text-indigo-600 mb-4" id="proofTaskId">ID: ------</p>
+  <div id="proofModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[95] hidden flex items-center justify-center p-4 transition-opacity cursor-pointer">
+    <div class="bg-white rounded-[2rem] p-6 max-w-lg w-full shadow-2xl relative overflow-hidden cursor-default" id="proofModalCard">
+      <button id="closeProofModalBtn" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-200 text-lg font-bold transition-all"><i class="fa-solid fa-xmark"></i></button>
       
-      <div class="bg-slate-100 rounded-2xl overflow-hidden mb-4 border border-slate-200 flex items-center justify-center min-h-[200px]">
-        <img id="proofImageDisplay" class="max-h-[350px] w-auto object-contain hidden" alt="Ảnh bằng chứng">
-        <p id="noProofText" class="text-sm text-slate-400 font-bold p-8 text-center">Chưa có ảnh bằng chứng được tải lên cho công việc này.</p>
+      <div class="pr-10">
+        <h3 class="text-lg md:text-xl font-black text-slate-900 mb-1 leading-tight" id="proofTaskTitle">Chi Tiết Công Việc</h3>
+        <p class="text-xs font-mono font-bold text-indigo-600 mb-4 bg-indigo-50 inline-block px-2 py-0.5 rounded" id="proofTaskId">ID: ------</p>
+      </div>
+      
+      <div class="bg-slate-50 rounded-2xl overflow-hidden mb-5 border-2 border-slate-100 flex items-center justify-center min-h-[250px] relative group">
+        <img id="proofImageDisplay" class="max-h-[400px] w-auto object-contain hidden transition-transform duration-300 group-hover:scale-105" alt="Ảnh bằng chứng">
+        <p id="noProofText" class="text-sm text-slate-400 font-bold p-8 text-center">Chưa có ảnh bằng chứng được tải lên.</p>
       </div>
 
-      <div class="flex justify-between items-center text-xs font-bold text-slate-500">
-        <span>Trạng thái: <span id="proofTaskStatus" class="font-extrabold text-slate-800">--</span></span>
-        <span id="proofTaskDate">--/--/----</span>
+      <div class="flex justify-between items-center text-xs font-bold text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100">
+        <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle-check text-emerald-500 text-sm hidden" id="proofStatusIcon"></i> <span id="proofTaskStatus" class="font-black uppercase tracking-wider text-slate-700">--</span></span>
+        <span id="proofTaskDate" class="font-mono text-[10px] bg-white px-2 py-1 rounded shadow-sm border border-slate-100">--/--/----</span>
       </div>
     </div>
   </div>
 
   <!-- SCRIPT LOGIC -->
-  <script>
-    // 1. FIREBASE CONFIGURATION
-    const firebaseConfig = {
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, serverTimestamp, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+    const firebaseConfig = configStr ? JSON.parse(configStr) : {
       apiKey: "AIzaSyBb5pQAWghl1c31e4hcwuUHupdtaOJdgdk",
       authDomain: "todolist-1e4f0.firebaseapp.com",
       projectId: "todolist-1e4f0",
       storageBucket: "todolist-1e4f0.firebasestorage.app",
       messagingSenderId: "103744898519",
-      appId: "1:103744898519:web:2e6ef8dae62c6e3d03b792",
-      measurementId: "G-821CE2D552"
+      appId: "1:103744898519:web:2e6ef8dae62c6e3d03b792"
     };
 
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const auth = firebase.auth();
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'todo-app-legacy';
 
-    const BASE_DOMAIN = "https://linhkim247.github.io/todolist/";
+    const isPlatform = typeof __app_id !== 'undefined';
+    
+    function getUsersCollection() {
+        return isPlatform ? collection(db, 'artifacts', APP_ID, 'public', 'data', 'users') : collection(db, 'users');
+    }
+    function getTasksCollection() {
+        return isPlatform ? collection(db, 'artifacts', APP_ID, 'public', 'data', 'tasks') : collection(db, 'tasks');
+    }
 
-    // State Variables
+    const BASE_DOMAIN = window.location.origin + window.location.pathname;
+
+    // State
     let currentUser = null;
     let todayTasks = [];
+    let currentTasksUnsubscribe = null;
 
-    // Helper: Format Date String YYYY-MM-DD
     function getTodayString() {
       const d = new Date();
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -270,226 +378,407 @@
 
     function getFormattedDateVN() {
       const d = new Date();
-      const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+      const days = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
       return `${days[d.getDay()]}, ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
     }
 
-    // Generate Task ID: CDTDL + YYYYMMDD + 4 Random Chars
     function generateTaskId() {
-      const d = new Date();
-      const dateCode = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
       const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-      return `CDTDL${dateCode}${rand}`;
+      return `CD-TK-${rand}`;
     }
 
-    // Generate User ID: CD + 8 Random Digits
     function generateUserId() {
-      const random8 = Math.floor(10000000 + Math.random() * 90000000);
-      return `CD${random8}`;
+      return `CD${Math.floor(10000000 + Math.random() * 90000000)}`;
+    }
+    
+    // Tạo ID đại diện cho cả 1 ngày (ID Task Tổng)
+    function getDailyId(uid, dateStr) {
+       if (!uid) return 'UNKNOWN';
+       const cleanDate = dateStr.replace(/-/g, '');
+       const shortUid = uid.length > 4 ? uid.slice(-4) : uid;
+       return `D${cleanDate}-${shortUid}`;
     }
 
-    // INITIALIZATION ON PAGE LOAD
+    function escapeHtml(text) {
+      if(!text) return '';
+      const div = document.createElement('div');
+      div.innerText = text;
+      return div.innerHTML;
+    }
+
+    // Custom Toast Notification
+    window.showToast = function(msg, type = 'error') {
+      const toast = document.getElementById('toastNotification');
+      const icon = document.getElementById('toastIcon');
+      document.getElementById('toastMessage').innerText = msg;
+      
+      toast.className = `fixed top-4 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 transform pointer-events-none flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl font-bold border-2`;
+      
+      if(type === 'error') {
+          toast.classList.add('bg-rose-50', 'text-rose-600', 'border-rose-200');
+          icon.className = 'fa-solid fa-circle-exclamation text-xl';
+      } else {
+          toast.classList.add('bg-emerald-50', 'text-emerald-600', 'border-emerald-200');
+          icon.className = 'fa-solid fa-circle-check text-xl';
+      }
+      
+      requestAnimationFrame(() => {
+          toast.classList.remove('-translate-y-20', 'opacity-0');
+          toast.classList.add('translate-y-0', 'opacity-100');
+      });
+      
+      setTimeout(() => {
+          toast.classList.remove('translate-y-0', 'opacity-100');
+          toast.classList.add('-translate-y-20', 'opacity-0');
+      }, 3000);
+    };
+
+    // ĐÓNG MODAL KHI CLICK OVERLAY (BÊN NGOÀI)
+    window.onclick = function(event) {
+      if (event.target.id === 'confirmModal') closeConfirmModal();
+      if (event.target.id === 'taskSearchModal') closeSearchModal();
+      if (event.target.id === 'dayDetailModal') document.getElementById('closeDayDetailBtn').click();
+      if (event.target.id === 'proofModal') document.getElementById('closeProofModalBtn').click();
+      if (event.target.id === 'printModal') document.getElementById('closePrintModalBtn').click();
+    };
+
+    // Custom Confirm Modal
+    let confirmActionCallback = null;
+    window.openConfirmModal = function(msg, callback) {
+      document.getElementById('confirmMessage').innerHTML = msg;
+      const modal = document.getElementById('confirmModal');
+      const card = document.getElementById('confirmModalCard');
+      modal.classList.remove('hidden');
+      
+      requestAnimationFrame(() => {
+          modal.classList.remove('opacity-0');
+          card.classList.remove('scale-95');
+          card.classList.add('scale-100');
+      });
+      confirmActionCallback = callback;
+    };
+    
+    function closeConfirmModal() {
+      const modal = document.getElementById('confirmModal');
+      const card = document.getElementById('confirmModalCard');
+      modal.classList.add('opacity-0');
+      card.classList.remove('scale-100');
+      card.classList.add('scale-95');
+      setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+    
+    document.getElementById('cancelConfirmBtn').addEventListener('click', closeConfirmModal);
+    document.getElementById('acceptConfirmBtn').addEventListener('click', () => {
+      if (confirmActionCallback) confirmActionCallback();
+      closeConfirmModal();
+    });
+
+    // Task Search Modal Handlers
+    const searchModal = document.getElementById('taskSearchModal');
+    const searchCard = document.getElementById('taskSearchModalCard');
+
+    function openSearchModal() {
+      searchModal.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        searchModal.classList.remove('opacity-0');
+        searchCard.classList.remove('scale-95');
+        searchCard.classList.add('scale-100');
+      });
+      document.getElementById('searchInputTaskId').focus();
+    }
+
+    function closeSearchModal() {
+      searchModal.classList.add('opacity-0');
+      searchCard.classList.remove('scale-100');
+      searchCard.classList.add('scale-95');
+      setTimeout(() => {
+        searchModal.classList.add('hidden');
+        document.getElementById('searchResultsArea').classList.add('hidden');
+      }, 300);
+    }
+
+    document.getElementById('openSearchModalBtn').addEventListener('click', openSearchModal);
+    document.getElementById('publicSearchBtn').addEventListener('click', openSearchModal);
+    document.getElementById('closeSearchModalBtn').addEventListener('click', closeSearchModal);
+
+    document.getElementById('searchTaskForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const term = document.getElementById('searchInputTaskId').value.trim().toUpperCase();
+      const resultsArea = document.getElementById('searchResultsArea');
+      resultsArea.classList.remove('hidden');
+      resultsArea.innerHTML = '<div class="text-center py-6"><i class="fa-solid fa-spinner fa-spin text-2xl text-indigo-600"></i><p class="text-xs text-slate-500 font-bold mt-2">Đang tra cứu Task ID...</p></div>';
+
+      try {
+        let taskData = null;
+        const q = query(getTasksCollection(), where('taskId', '==', term));
+        const snap = await getDocs(q);
+        
+        if (!snap.empty) {
+          taskData = { id: snap.docs[0].id, ...snap.docs[0].data() };
+        } else {
+          const docSnap = await getDoc(doc(getTasksCollection(), term));
+          if (docSnap.exists()) {
+             taskData = { id: docSnap.id, ...docSnap.data() };
+          }
+        }
+
+        if (!taskData) {
+          resultsArea.innerHTML = `
+            <div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-center text-rose-700 font-bold text-sm">
+              <i class="fa-solid fa-circle-xmark text-2xl block mb-1"></i>
+              Không tìm thấy task với ID "${term}"
+            </div>
+          `;
+          return;
+        }
+
+        let ownerName = taskData.userId;
+        if(taskData.userId) {
+          const userSnap = await getDoc(doc(getUsersCollection(), taskData.userId));
+          if(userSnap.exists()) ownerName = userSnap.data().name;
+        }
+
+        resultsArea.innerHTML = `
+          <div class="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 text-left">
+            <div class="flex justify-between items-start mb-2">
+              <span class="font-mono text-xs font-black bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-lg">${taskData.taskId || taskData.id}</span>
+              <span class="text-xs font-black uppercase px-2.5 py-1 rounded-lg ${taskData.completed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                 ${taskData.completed ? 'Đã Hoàn Thành' : 'Chưa Hoàn Thành'}
+              </span>
+            </div>
+            <p class="font-black text-slate-800 text-base mb-3 leading-snug">${escapeHtml(taskData.text)}</p>
+            <div class="text-[11px] text-slate-500 font-bold space-y-1 mb-3 border-t border-slate-200 pt-2">
+              <div><i class="fa-solid fa-user text-indigo-500 mr-1"></i> Người thực hiện: <span class="text-slate-900 font-black">${escapeHtml(ownerName)}</span></div>
+              <div><i class="fa-solid fa-calendar text-indigo-500 mr-1"></i> Ngày: <span class="font-mono text-slate-900">${taskData.dateStr}</span></div>
+            </div>
+            ${taskData.proofImage ? `
+              <div class="border-2 border-slate-200 rounded-xl overflow-hidden bg-white p-1">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center mb-1">Minh Chứng Ảnh</p>
+                <img src="${taskData.proofImage}" class="w-full max-h-48 object-contain rounded-lg" alt="Bằng chứng">
+              </div>
+            ` : '<p class="text-xs font-bold text-amber-600 bg-amber-50 p-2 rounded-lg text-center"><i class="fa-solid fa-triangle-exclamation"></i> Chưa đính kèm minh chứng ảnh</p>'}
+          </div>
+        `;
+
+      } catch (err) {
+        resultsArea.innerHTML = `<div class="text-rose-600 font-bold text-xs text-center">Lỗi: ${err.message}</div>`;
+      }
+    });
+
     window.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('currentDateText').innerText = getFormattedDateVN();
 
-      // Ensure Anonymous Authentication
       try {
-        await auth.signInAnonymously();
+        await signInAnonymously(auth);
       } catch (err) {
         console.error("Auth error:", err);
       }
 
-      // Check URL Hash for QR Code Navigation
       const hash = window.location.hash;
-      if (hash.startsWith('#profile=') || hash.startsWith('#verify=')) {
-        // Mode 1: Public QR Scan View (Bypass login screen completely)
+      if (hash.startsWith('#profile=')) {
         handlePublicQRNavigation(hash);
       } else {
-        // Mode 2: Standard App Home View
         checkLocalStorageUser();
       }
     });
 
-    // ROUTE: Check LocalStorage User
     function checkLocalStorageUser() {
       const savedUserId = localStorage.getItem('todo_user_id');
       const savedUserName = localStorage.getItem('todo_user_name');
 
       if (savedUserId && savedUserName) {
-        currentUser = { userId: savedUserId, name: savedUserName };
-        showMainScreen();
+        completeLogin(savedUserId, savedUserName);
       } else {
         document.getElementById('loginModal').classList.remove('hidden');
       }
     }
 
-    // LOGIN FORM SUBMISSION (User Registration with Case-Insensitive Check)
+    function completeLogin(id, name) {
+        localStorage.setItem('todo_user_id', id);
+        localStorage.setItem('todo_user_name', name);
+        currentUser = { userId: id, name: name };
+        
+        document.getElementById('loginModal').classList.add('hidden');
+        document.getElementById('mainScreen').classList.remove('hidden');
+        document.getElementById('userNameDisplay').innerText = currentUser.name;
+        document.getElementById('userIdDisplay').innerText = `ID: ${currentUser.userId}`;
+        
+        loadTodayTasks();
+    }
+
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const nameInput = document.getElementById('userNameInput').value.trim();
-      const errorMsg = document.getElementById('nameErrorMsg');
+      const input = document.getElementById('userNameInput').value.trim();
       const submitBtn = document.getElementById('submitNameBtn');
 
-      if (!nameInput) return;
+      if (!input) return;
 
-      errorMsg.classList.add('hidden');
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang kiểm tra...';
+      submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xử lý...';
 
       try {
-        const lowerName = nameInput.toLowerCase();
-        
-        // Firestore Duplicate Name Check
-        const snap = await db.collection('users').where('lowerName', '==', lowerName).get();
-
-        if (!snap.empty) {
-          // Name exists! Show Red Error and block creation
-          errorMsg.classList.remove('hidden');
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = '<span>Xác Nhận & Tiếp Tục</span> <i class="fa-solid fa-arrow-right"></i>';
-          return;
+        if (input.startsWith('CD') && input.length >= 8) {
+            const qId = query(getUsersCollection(), where('userId', '==', input));
+            const snapId = await getDocs(qId);
+            if (!snapId.empty) {
+                const u = snapId.docs[0].data();
+                completeLogin(u.userId, u.name);
+                showToast("Đăng nhập thành công bằng ID!", "success");
+                return;
+            }
         }
 
-        // Generate New Account ID (CD + 8 Digits)
+        const lowerName = input.toLowerCase();
+        const qName = query(getUsersCollection(), where('lowerName', '==', lowerName));
+        const snapName = await getDocs(qName);
+        if (!snapName.empty) {
+            const u = snapName.docs[0].data();
+            completeLogin(u.userId, u.name);
+            showToast("Đăng nhập thành công!", "success");
+            return;
+        }
+
         const newUserId = generateUserId();
-
-        // Save User to Firestore
-        await db.collection('users').doc(newUserId).set({
-          userId: newUserId,
-          name: nameInput,
-          lowerName: lowerName,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        // Store in LocalStorage
-        localStorage.setItem('todo_user_id', newUserId);
-        localStorage.setItem('todo_user_name', nameInput);
-
-        currentUser = { userId: newUserId, name: nameInput };
-
-        document.getElementById('loginModal').classList.add('hidden');
-        showMainScreen();
+        const newUserData = {
+            userId: newUserId,
+            name: input,
+            lowerName: lowerName,
+            createdAt: serverTimestamp()
+        };
+        
+        await setDoc(doc(getUsersCollection(), newUserId), newUserData);
+        completeLogin(newUserId, input);
+        showToast("Tạo tài khoản thành công!", "success");
 
       } catch (err) {
-        alert("Lỗi kết nối Firebase: " + err.message);
+        showToast("Lỗi hệ thống: " + err.message, "error");
         submitBtn.disabled = false;
-        submitBtn.innerHTML = '<span>Xác Nhận & Tiếp Tục</span> <i class="fa-solid fa-arrow-right"></i>';
+        submitBtn.innerHTML = '<span>Vào Ứng Dụng</span> <i class="fa-solid fa-arrow-right"></i>';
       }
     });
 
-    // DISPLAY MAIN APPLICATION SCREEN
-    function showMainScreen() {
-      document.getElementById('mainScreen').classList.remove('hidden');
-      document.getElementById('userNameDisplay').innerText = currentUser.name;
-      document.getElementById('userIdDisplay').innerText = `ID: ${currentUser.userId}`;
-
-      loadTodayTasks();
-    }
-
-    // LOAD TODAY'S TASKS FROM FIRESTORE
     function loadTodayTasks() {
       const todayStr = getTodayString();
+      const q = query(getTasksCollection(), 
+                      where('userId', '==', currentUser.userId), 
+                      where('dateStr', '==', todayStr));
       
-      db.collection('tasks')
-        .where('userId', '==', currentUser.userId)
-        .where('dateStr', '==', todayStr)
-        .onSnapshot((snapshot) => {
+      if(currentTasksUnsubscribe) currentTasksUnsubscribe();
+
+      currentTasksUnsubscribe = onSnapshot(q, (snapshot) => {
           todayTasks = [];
-          snapshot.forEach(doc => {
-            todayTasks.push({ id: doc.id, ...doc.data() });
+          snapshot.forEach(d => {
+            todayTasks.push({ id: d.id, ...d.data() });
           });
           renderTaskList();
-        });
+      }, (error) => {
+          console.error("Lỗi tải task: ", error);
+          showToast("Không thể tải danh sách công việc.", "error");
+      });
     }
 
-    // RENDER TASK LIST ON SCREEN
     function renderTaskList() {
       const listContainer = document.getElementById('taskList');
       const badge = document.getElementById('taskCountBadge');
       listContainer.innerHTML = '';
 
-      badge.innerText = `${todayTasks.length} Công Việc`;
+      badge.innerText = `${todayTasks.length} Task`;
 
       if (todayTasks.length === 0) {
         listContainer.innerHTML = `
-          <div class="bg-white rounded-2xl p-8 text-center border border-slate-200">
-            <i class="fa-solid fa-clipboard-check text-4xl text-slate-300 mb-2"></i>
-            <p class="text-slate-400 font-bold">Chưa có công việc nào hôm nay. Hãy thêm bên trên!</p>
+          <div class="bg-white rounded-3xl p-8 text-center border-2 border-dashed border-slate-200">
+            <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl text-slate-300">
+               <i class="fa-solid fa-clipboard-check"></i>
+            </div>
+            <p class="text-slate-400 font-bold text-sm">Chưa có task nào hôm nay.<br/>Thêm mục tiêu mới ở trên!</p>
           </div>
         `;
         return;
       }
 
       todayTasks.forEach(task => {
+        const hasImg = !!task.proofImage;
+        const taskIdDisplay = task.taskId || task.id;
         const item = document.createElement('div');
-        item.className = `bg-white rounded-2xl p-4 border-2 transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-3 ${task.completed ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200'}`;
-
-        item.innerHTML = `
-          <div class="flex items-center gap-3 flex-1">
-            <button onclick="toggleTaskStatus('${task.id}', ${!task.completed})" class="w-8 h-8 rounded-xl border-2 flex items-center justify-center text-lg transition-all ${task.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 text-transparent hover:border-slate-400'}">
-              <i class="fa-solid fa-check"></i>
-            </button>
-            <div>
-              <p class="text-xl font-black ${task.completed ? 'line-through text-slate-400' : 'text-slate-900'}">${escapeHtml(task.text)}</p>
-              <p class="text-[11px] font-mono font-bold text-indigo-600">ID: ${task.taskId}</p>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2 self-end md:self-center">
-            <label class="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 px-3 rounded-xl transition-all flex items-center gap-1.5">
-              <i class="fa-solid fa-camera"></i> ${task.proofImage ? 'Sửa Bằng Chứng' : 'Đính Ảnh'}
-              <input type="file" accept="image/*" class="hidden" onchange="uploadProofImage(event, '${task.id}')">
-            </label>
-            ${task.proofImage ? `
-              <button onclick="openProofModal('${task.taskId}', '${escapeHtml(task.text)}', '${task.proofImage}', ${task.completed}, '${task.dateStr}')" class="bg-emerald-100 text-emerald-800 text-xs font-bold py-2 px-3 rounded-xl hover:bg-emerald-200">
-                <i class="fa-solid fa-eye"></i> Xem Ảnh
-              </button>
-            ` : ''}
-            <button onclick="deleteTask('${task.id}')" class="text-slate-300 hover:text-rose-600 p-2 text-lg">
-              <i class="fa-solid fa-trash-can"></i>
-            </button>
-          </div>
-        `;
+        
+        if (task.completed) {
+            item.className = "flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-emerald-50/70 p-4 md:p-5 rounded-3xl border-2 border-emerald-200 shadow-sm transition-all";
+            item.innerHTML = `
+              <div class="flex items-center gap-4 w-full">
+                <div class="w-10 h-10 rounded-2xl bg-emerald-500 text-white flex flex-shrink-0 items-center justify-center shadow-inner shadow-emerald-700/50">
+                  <i class="fa-solid fa-lock text-sm"></i>
+                </div>
+                <div class="flex-1 pr-2">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-[10px] font-mono font-bold bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-md">ID: ${taskIdDisplay}</span>
+                  </div>
+                  <p class="text-lg font-black line-through text-slate-500 decoration-emerald-300 decoration-2">${escapeHtml(task.text)}</p>
+                </div>
+                <button onclick="window.viewProof('${task.id}', true)" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-xs font-black py-2.5 px-4 rounded-xl transition-all shadow-sm flex items-center gap-2 flex-shrink-0 active:scale-95 border border-emerald-200">
+                  <i class="fa-solid fa-image"></i> <span>Xem Ảnh</span>
+                </button>
+              </div>
+            `;
+        } else {
+            item.className = "flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-white p-4 md:p-5 rounded-3xl border-2 border-slate-100 shadow-sm transition-all hover:border-indigo-300 hover:shadow-md";
+            item.innerHTML = `
+              <div class="flex items-center gap-4 w-full">
+                <button onclick="window.attemptCompleteTask('${task.id}', '${hasImg}', '${escapeHtml(task.text)}')" class="w-10 h-10 flex-shrink-0 rounded-2xl border-[3px] flex items-center justify-center text-xl transition-all ${hasImg ? 'border-indigo-400 text-transparent hover:bg-indigo-50' : 'border-slate-200 text-transparent hover:border-indigo-300 bg-slate-50'}">
+                  <i class="fa-solid fa-check"></i>
+                </button>
+                <div class="flex-1 pr-2">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-[10px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">ID: ${taskIdDisplay}</span>
+                  </div>
+                  <p class="text-lg font-black text-slate-800 leading-tight">${escapeHtml(task.text)}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0 justify-end md:justify-start">
+                <label class="cursor-pointer ${hasImg ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100 border-slate-200'} border text-[11px] font-black uppercase tracking-wider py-2.5 px-4 rounded-xl transition-all flex items-center gap-2 active:scale-95 w-full md:w-auto justify-center">
+                  <i class="fa-solid ${hasImg ? 'fa-image' : 'fa-camera'}"></i> ${hasImg ? 'Đã Tải Ảnh' : 'Đính Bằng Chứng'}
+                  <input type="file" accept="image/*" class="hidden" onchange="window.uploadTaskImage(event, '${task.id}')">
+                </label>
+                <button onclick="window.deleteTaskBtn('${task.id}')" class="text-slate-400 hover:text-rose-600 hover:bg-rose-50 w-10 h-10 rounded-xl flex items-center justify-center transition-all flex-shrink-0">
+                  <i class="fa-solid fa-trash-can text-lg"></i>
+                </button>
+              </div>
+            `;
+        }
         listContainer.appendChild(item);
       });
     }
 
-    // ADD NEW TASK
     document.getElementById('addTaskForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const input = document.getElementById('taskInput');
       const text = input.value.trim();
       if (!text || !currentUser) return;
 
-      const newTaskId = generateTaskId();
+      const btn = e.target.querySelector('button');
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+      btn.disabled = true;
 
-      await db.collection('tasks').add({
-        taskId: newTaskId,
-        userId: currentUser.userId,
-        text: text,
-        completed: false,
-        dateStr: getTodayString(),
-        proofImage: null,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-
-      input.value = '';
+      try {
+        const newTask = {
+          userId: currentUser.userId,
+          taskId: generateTaskId(),
+          text: text,
+          dateStr: getTodayString(),
+          completed: false,
+          proofImage: null,
+          createdAt: serverTimestamp()
+        };
+        await addDoc(getTasksCollection(), newTask);
+        input.value = '';
+      } catch (err) {
+        showToast("Lỗi khi thêm task: " + err.message, "error");
+      }
+      
+      btn.innerHTML = '<i class="fa-solid fa-plus"></i> Thêm';
+      btn.disabled = false;
     });
 
-    // TOGGLE TASK COMPLETION
-    async function toggleTaskStatus(id, newStatus) {
-      await db.collection('tasks').doc(id).update({ completed: newStatus });
-    }
-
-    // DELETE TASK
-    async function deleteTask(id) {
-      if (confirm("Bạn có chắc chắn muốn xóa công việc này?")) {
-        await db.collection('tasks').doc(id).delete();
-      }
-    }
-
-    // UPLOAD PROOF IMAGE (Base64 Compressed)
-    function uploadProofImage(event, docId) {
+    window.uploadTaskImage = async function(event, taskId) {
       const file = event.target.files[0];
       if (!file) return;
 
@@ -498,290 +787,429 @@
         const img = new Image();
         img.onload = function() {
           const canvas = document.createElement('canvas');
+          const max_size = 800;
           let width = img.width;
           let height = img.height;
-          const maxDim = 800;
 
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
+          if (width > height) {
+            if (width > max_size) {
+              height *= max_size / width;
+              width = max_size;
+            }
+          } else {
+            if (height > max_size) {
+              width *= max_size / height;
+              height = max_size;
             }
           }
-
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
-
-          const base64Data = canvas.toDataURL('image/jpeg', 0.7);
-          db.collection('tasks').doc(docId).update({ proofImage: base64Data });
+          
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+          showToast("Đang lưu ảnh...", "success");
+          
+          updateDoc(doc(getTasksCollection(), taskId), { proofImage: compressedBase64 })
+            .then(() => showToast("Tải ảnh bằng chứng thành công!", "success"))
+            .catch((err) => showToast("Lỗi tải ảnh: File quá lớn.", "error"));
         };
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
+    };
+
+    window.attemptCompleteTask = function(taskId, hasImgStr, taskText) {
+      if (hasImgStr !== 'true') {
+         showToast("BẠN PHẢI TẢI ẢNH BẰNG CHỨNG TRƯỚC! Nhấn nút 'Đính Bằng Chứng' bên cạnh task.", "error");
+         return;
+      }
+      
+      openConfirmModal(
+        `Xác nhận hoàn thành:<br/><span class="text-indigo-600 font-black text-lg block my-2">${taskText}</span><span class="text-rose-500 font-bold block mt-2">Sau khi xác nhận, task sẽ bị KHÓA vĩnh viễn và bạn không thể sửa đổi ảnh.</span>`, 
+        async () => {
+          try {
+            await updateDoc(doc(getTasksCollection(), taskId), { completed: true });
+            showToast("Đã khóa task thành công!", "success");
+          } catch(e) {
+            showToast("Lỗi: " + e.message, "error");
+          }
+        }
+      );
+    };
+
+    window.deleteTaskBtn = function(taskId) {
+      openConfirmModal("Bạn có chắc chắn muốn xóa công việc này không?", async () => {
+         try {
+            await deleteDoc(doc(getTasksCollection(), taskId));
+            showToast("Đã xóa task.", "success");
+         } catch(e) {
+            showToast("Lỗi xóa: " + e.message, "error");
+         }
+      });
+    };
+
+    window.viewProof = function(taskId, isLocked) {
+       const task = todayTasks.find(t => t.id === taskId);
+       if(!task) return;
+       openProofModalUI(task);
+    }
+    
+    function openProofModalUI(taskData) {
+        document.getElementById('proofTaskTitle').innerText = taskData.text;
+        document.getElementById('proofTaskId').innerText = `ID: ${taskData.taskId || taskData.id}`;
+        
+        const imgEl = document.getElementById('proofImageDisplay');
+        const noText = document.getElementById('noProofText');
+        const icon = document.getElementById('proofStatusIcon');
+        const statusText = document.getElementById('proofTaskStatus');
+        
+        if (taskData.proofImage) {
+            imgEl.src = taskData.proofImage;
+            imgEl.classList.remove('hidden');
+            noText.classList.add('hidden');
+        } else {
+            imgEl.classList.add('hidden');
+            noText.classList.remove('hidden');
+        }
+        
+        if (taskData.completed) {
+            icon.classList.remove('hidden');
+            statusText.innerText = "Đã Khóa & Xác Nhận";
+            statusText.classList.remove('text-slate-700');
+            statusText.classList.add('text-emerald-700');
+        } else {
+            icon.classList.add('hidden');
+            statusText.innerText = "Đang Chờ Xác Nhận";
+            statusText.classList.add('text-slate-700');
+            statusText.classList.remove('text-emerald-700');
+        }
+        
+        document.getElementById('proofTaskDate').innerText = taskData.dateStr;
+        
+        const m = document.getElementById('proofModal');
+        m.classList.remove('hidden');
+        requestAnimationFrame(() => m.classList.remove('opacity-0'));
+    }
+    
+    document.getElementById('closeProofModalBtn').addEventListener('click', () => {
+        const m = document.getElementById('proofModal');
+        m.classList.add('opacity-0');
+        setTimeout(() => m.classList.add('hidden'), 300);
+    });
+
+    let currentViewUserId = null;
+    let currentProfileTasksByDate = {};
+    
+    async function handlePublicQRNavigation(hashStr) {
+        document.getElementById('mainScreen').classList.add('hidden');
+        document.getElementById('loginModal').classList.add('hidden');
+        const container = document.getElementById('publicViewContainer');
+        container.classList.remove('hidden');
+
+        if (hashStr.startsWith('#profile=')) {
+            currentViewUserId = hashStr.replace('#profile=', '');
+            loadPublicProfile(currentViewUserId);
+        } else if (hashStr.startsWith('#verify=')) {
+            const parts = hashStr.replace('#verify=', '').split('|');
+            currentViewUserId = parts[0];
+            const dateStr = parts[1];
+            loadPublicProfile(currentViewUserId).then(() => {
+              openDayDetailModal(currentViewUserId, dateStr);
+            });
+        }
     }
 
-    // OPEN PRINT PREVIEW MODAL & GENERATE QR CODES
-    document.getElementById('openPrintModalBtn').addEventListener('click', () => {
-      if (!currentUser) return;
+    async function loadPublicProfile(uid) {
+        const contentArea = document.getElementById('publicContentArea');
+        contentArea.innerHTML = '<div class="text-center py-10"><i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i><p class="mt-4 font-bold text-slate-500">Đang tải hồ sơ...</p></div>';
 
-      document.getElementById('printCardDate').innerText = getFormattedDateVN();
-      document.getElementById('printCardUserName').innerText = currentUser.name;
-      document.getElementById('printCardUserId').innerText = currentUser.userId;
+        try {
+            const uSnap = await getDoc(doc(getUsersCollection(), uid));
+            if (!uSnap.exists()) {
+                contentArea.innerHTML = '<div class="text-center py-10 text-rose-500 font-bold"><i class="fa-solid fa-ghost text-4xl mb-3 block"></i>Không tìm thấy người dùng này.</div>';
+                return;
+            }
+            const uData = uSnap.data();
+            document.getElementById('publicUserName').innerText = uData.name;
+            document.getElementById('publicUserId').innerText = `ID: ${uData.userId}`;
 
-      // Render Print Tasks List
-      const printList = document.getElementById('printTaskList');
-      printList.innerHTML = '';
+            const qTasks = query(getTasksCollection(), where('userId', '==', uid));
+            const tSnap = await getDocs(qTasks);
+            
+            let allTasks = [];
+            tSnap.forEach(d => allTasks.push({ id: d.id, ...d.data() }));
 
-      if (todayTasks.length === 0) {
-        printList.innerHTML = '<p class="text-center text-xs text-slate-400 py-4 font-bold">Chưa có công việc nào để in.</p>';
+            const total = allTasks.length;
+            const completed = allTasks.filter(t => t.completed).length;
+            const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+
+            document.getElementById('statTotal').innerText = total;
+            document.getElementById('statCompleted').innerText = completed;
+            document.getElementById('statPercent').innerText = percent + '%';
+
+            currentProfileTasksByDate = {};
+            allTasks.forEach(task => {
+                if(!currentProfileTasksByDate[task.dateStr]) currentProfileTasksByDate[task.dateStr] = [];
+                currentProfileTasksByDate[task.dateStr].push(task);
+            });
+
+            contentArea.innerHTML = renderVisualCalendar(currentProfileTasksByDate);
+
+        } catch (err) {
+            contentArea.innerHTML = `<div class="text-rose-500 font-bold text-center py-10">Lỗi: ${err.message}</div>`;
+        }
+    }
+
+    function renderVisualCalendar(taskByDate) {
+        const todayStr = getTodayString();
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().getMonth() + 1;
+
+        const activeMonths = new Set(Object.keys(taskByDate).map(d => d.substring(0,7)));
+        activeMonths.add(`${currentYear}-${String(currentMonth).padStart(2, '0')}`);
+        
+        const sortedMonths = [...activeMonths].sort().reverse();
+        
+        let html = '';
+        sortedMonths.forEach(monthStr => {
+            const [year, month] = monthStr.split('-').map(Number);
+            const daysInMonth = new Date(year, month, 0).getDate();
+            const firstDay = new Date(year, month - 1, 1).getDay();
+            
+            html += `
+            <div class="mb-6 bg-white p-4 md:p-5 rounded-[2rem] border-2 border-slate-100 shadow-sm">
+                <div class="flex items-center gap-2 mb-4 ml-1">
+                  <i class="fa-regular fa-calendar text-indigo-500"></i>
+                  <h4 class="font-black text-slate-800 uppercase tracking-widest text-sm">Tháng ${month}/${year}</h4>
+                </div>
+                <div class="grid grid-cols-7 gap-2">
+            `;
+            
+            const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+            dayNames.forEach(d => html += `<div class="text-center text-[10px] md:text-xs font-black text-slate-400 mb-1 tracking-tighter">${d}</div>`);
+            
+            for(let i=0; i<firstDay; i++) {
+                html += `<div></div>`;
+            }
+            
+            for(let i=1; i<=daysInMonth; i++) {
+                const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+                const tasks = taskByDate[dateStr] || [];
+                
+                // CẬP NHẬT: LUÔN HIỆN ĐÚNG 3 MÀU NHƯ YÊU CẦU (Đen, Xanh, Đỏ)
+                let dotColorClass = "bg-black"; 
+                
+                if (tasks.length > 0) {
+                    const allDone = tasks.every(t => t.completed);
+                    if (allDone) {
+                        dotColorClass = "bg-emerald-500 shadow-sm shadow-emerald-200"; // Màu Xanh
+                    } else {
+                        dotColorClass = "bg-rose-500 shadow-sm shadow-rose-200"; // Màu Đỏ
+                    }
+                }
+                
+                const isToday = (dateStr === todayStr);
+
+                html += `
+                    <div onclick="window.openDayDetailModal('${currentViewUserId}', '${dateStr}')" 
+                         class="flex flex-col items-center justify-center py-2.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/70 border ${isToday ? 'border-indigo-500 font-bold bg-indigo-50/40' : 'border-slate-100'} cursor-pointer transition-all active:scale-95 group relative">
+                        <span class="font-black text-xs md:text-sm text-slate-700 group-hover:text-indigo-600">${i}</span>
+                        <span class="w-2.5 h-2.5 rounded-full ${dotColorClass} mt-1.5 transition-transform group-hover:scale-125"></span>
+                    </div>
+                `;
+            }
+            
+            html += `</div></div>`;
+        });
+        
+        return html;
+    }
+
+    window.openDayDetailModal = function(uid, dateStr) {
+      const tasks = currentProfileTasksByDate[dateStr] || [];
+      const modal = document.getElementById('dayDetailModal');
+      const card = document.getElementById('dayDetailModalCard');
+      const container = document.getElementById('dayDetailTasksList');
+      
+      const formattedDate = dateStr.split('-').reverse().join('/');
+      
+      // HIỂN THỊ TỔNG SỐ TASK VÀ ID TASK TỔNG (DAILY ID)
+      const dailyId = getDailyId(uid, dateStr);
+      document.getElementById('dayDetailTitle').innerText = `Ngày ${formattedDate}`;
+      document.getElementById('dayDetailId').innerText = `ID Tổng: ${dailyId}`;
+      document.getElementById('dayDetailTotalTasks').innerText = `${tasks.length} Task`;
+
+      container.innerHTML = '';
+
+      if (tasks.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-10 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+            <i class="fa-solid fa-calendar-xmark text-3xl text-slate-300 mb-2"></i>
+            <p class="text-slate-400 font-bold text-sm">Không có công việc nào được tạo trong ngày này.</p>
+          </div>
+        `;
       } else {
-        todayTasks.forEach(task => {
-          const div = document.createElement('div');
-          div.className = 'flex items-start gap-2 border-b border-slate-100 pb-1.5';
-          div.innerHTML = `
-            <span class="text-lg font-black leading-none ${task.completed ? 'text-emerald-600' : 'text-slate-800'}">${task.completed ? '☑' : '☐'}</span>
-            <div class="flex-1">
-              <p class="text-base font-black text-slate-900 leading-tight ${task.completed ? 'line-through text-slate-400' : ''}">${escapeHtml(task.text)}</p>
-              <p class="text-[9px] font-mono font-bold text-slate-500">ID: ${task.taskId}</p>
+        tasks.forEach(task => {
+          const item = document.createElement('div');
+          const taskIdDisplay = task.taskId || task.id;
+
+          item.className = `p-4 rounded-2xl border-2 ${task.completed ? 'bg-emerald-50/40 border-emerald-200' : 'bg-slate-50 border-slate-200'} space-y-3`;
+          
+          item.innerHTML = `
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <span class="text-[10px] font-mono font-bold bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-200 shadow-sm">ID: ${taskIdDisplay}</span>
+                <p class="text-base font-black text-slate-800 mt-1.5 ${task.completed ? 'line-through text-slate-500' : ''}">${escapeHtml(task.text)}</p>
+              </div>
+              <span class="text-[10px] font-black uppercase px-2.5 py-1 rounded-lg shrink-0 ${task.completed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                ${task.completed ? 'Đã Xong' : 'Chưa Xong'}
+              </span>
             </div>
+
+            ${task.proofImage ? `
+              <div class="bg-white p-2 rounded-xl border border-slate-200">
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1"><i class="fa-solid fa-camera"></i> Minh Chứng Ảnh (Công Khai)</span>
+                <img src="${task.proofImage}" class="w-full max-h-52 object-contain rounded-lg border border-slate-100 cursor-pointer hover:opacity-90 transition-opacity" onclick="window.viewProofImageDirect('${task.proofImage}', '${escapeHtml(task.text)}')">
+              </div>
+            ` : (task.completed ? '<div class="text-[11px] font-bold text-amber-600 bg-amber-50 p-2 rounded-lg"><i class="fa-solid fa-info-circle"></i> Task đã xác nhận</div>' : '<div class="text-[11px] font-bold text-slate-400 bg-slate-100 p-2 rounded-lg"><i class="fa-solid fa-clock"></i> Chưa tải ảnh minh chứng</div>')}
           `;
-          printList.appendChild(div);
+          container.appendChild(item);
         });
       }
 
-      // Generate 2 QR Codes
-      const todayStr = getTodayString();
-      const profileUrl = `${BASE_DOMAIN}#profile=${currentUser.userId}`;
-      const verifyUrl = `${BASE_DOMAIN}#verify=${currentUser.userId}&date=${todayStr}`;
+      modal.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        modal.classList.remove('opacity-0');
+        card.classList.remove('scale-95');
+        card.classList.add('scale-100');
+      });
+    };
 
-      generateQR('qrProfile', profileUrl);
-      generateQR('qrVerify', verifyUrl);
+    window.viewProofImageDirect = function(imgSrc, title) {
+      openProofModalUI({
+        text: title,
+        taskId: 'MINH CHỨNG',
+        proofImage: imgSrc,
+        completed: true,
+        dateStr: 'Công Khai'
+      });
+    };
 
-      document.getElementById('printModal').classList.remove('hidden');
+    document.getElementById('closeDayDetailBtn').addEventListener('click', () => {
+      const modal = document.getElementById('dayDetailModal');
+      const card = document.getElementById('dayDetailModalCard');
+      modal.classList.add('opacity-0');
+      card.classList.remove('scale-100');
+      card.classList.add('scale-95');
+      setTimeout(() => modal.classList.add('hidden'), 300);
+    });
+
+    const printModal = document.getElementById('printModal');
+    
+    document.getElementById('openPrintModalBtn').addEventListener('click', () => {
+      if(!currentUser) return;
+      printModal.classList.remove('hidden');
+      preparePrintCard();
     });
 
     document.getElementById('closePrintModalBtn').addEventListener('click', () => {
-      document.getElementById('printModal').classList.add('hidden');
+      printModal.classList.add('hidden');
     });
 
-    // QR GENERATOR HELPER
-    function generateQR(elementId, text) {
-      const el = document.getElementById(elementId);
-      el.innerHTML = '';
-      new QRCode(el, {
-        text: text,
-        width: 110,
-        height: 110,
-        colorDark: "#000000",
+    function preparePrintCard() {
+      const todayStr = getTodayString();
+      const dailyId = getDailyId(currentUser.userId, todayStr);
+      
+      document.getElementById('printCardDate').innerText = getFormattedDateVN();
+      document.getElementById('printCardUserName').innerText = currentUser.name;
+      document.getElementById('printCardUserId').innerText = currentUser.userId;
+      
+      // HIỂN THỊ ID TASK TỔNG & TỔNG SỐ LƯỢNG TRONG BẢN IN
+      document.getElementById('printCardDailyId').innerText = dailyId;
+      document.getElementById('printCardTotalTasks').innerText = `Tổng: ${todayTasks.length} Task`;
+
+      const listContainer = document.getElementById('printTaskList');
+      listContainer.innerHTML = '';
+      
+      if(todayTasks.length === 0) {
+         listContainer.innerHTML = '<div class="text-[10px] font-bold text-center text-slate-400 py-4 border-2 border-dashed border-slate-200 rounded">Trống</div>';
+      } else {
+          todayTasks.forEach((t) => {
+            const div = document.createElement('div');
+            div.className = "flex items-start gap-2 mb-1.5";
+            div.innerHTML = `
+              <div class="w-4 h-4 rounded border-2 border-slate-900 shrink-0 mt-0.5 bg-white relative">
+                 ${t.completed ? '<div class="absolute inset-0 bg-slate-900 m-0.5 rounded-sm"></div>' : ''}
+              </div>
+              <div class="flex-1">
+                <p class="text-xs font-bold leading-tight text-slate-900 ${t.completed ? 'line-through text-slate-500' : ''}">${escapeHtml(t.text)}</p>
+                <span class="text-[8px] font-mono text-slate-400 font-bold">ID: ${t.taskId || t.id}</span>
+              </div>
+            `;
+            listContainer.appendChild(div);
+          });
+      }
+
+      document.getElementById('qrProfile').innerHTML = '';
+      document.getElementById('qrVerify').innerHTML = '';
+      
+      const profileUrl = `${BASE_DOMAIN}#profile=${currentUser.userId}`;
+      const verifyUrl = `${BASE_DOMAIN}#verify=${currentUser.userId}|${todayStr}`;
+
+      new QRCode(document.getElementById('qrProfile'), {
+        text: profileUrl,
+        width: 80, height: 80,
+        colorDark: "#3730a3",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.L
+      });
+
+      new QRCode(document.getElementById('qrVerify'), {
+        text: verifyUrl,
+        width: 80, height: 80,
+        colorDark: "#065f46",
         colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.L
       });
     }
 
-    // DOWNLOAD CARD IMAGE PNG
-    document.getElementById('downloadImgBtn').addEventListener('click', () => {
-      const card = document.getElementById('printCardArea');
-      html2canvas(card, { scale: 3 }).then(canvas => {
-        const link = document.createElement('a');
-        link.download = `TodoList_${currentUser.userId}_${getTodayString()}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-      });
+    // PDF Download using html2pdf.js for vector/sharp quality
+    document.getElementById('downloadPdfBtn').addEventListener('click', () => {
+       const card = document.getElementById('printCardArea');
+       
+       // CẬP NHẬT: Tăng scale lên 4 để chống vỡ nét tuyệt đối khi lưu thành PDF
+       const opt = {
+          margin:       [5, 5, 5, 5],
+          filename:     `Task-${getTodayString()}-${currentUser ? currentUser.name : 'Print'}.pdf`,
+          image:        { type: 'jpeg', quality: 1.0 },
+          html2canvas:  { scale: 4, useCORS: true, logging: false },
+          jsPDF:        { unit: 'mm', format: 'a5', orientation: 'portrait' }
+       };
+
+       showToast("Đang tạo file PDF sắc nét...", "success");
+
+       html2pdf().set(opt).from(card).save().then(() => {
+          showToast("Đã tải file PDF thành công!", "success");
+       }).catch(err => {
+          showToast("Lỗi khi tải PDF: " + err.message, "error");
+       });
     });
 
-    // TRIGGER DIRECT PRINT
     document.getElementById('triggerPrintBtn').addEventListener('click', () => {
-      window.print();
+       window.print();
     });
 
-    // OPEN PROOF MODAL POPUP
-    function openProofModal(taskId, text, imageSrc, completed, dateStr) {
-      document.getElementById('proofTaskTitle').innerText = text;
-      document.getElementById('proofTaskId').innerText = `ID: ${taskId}`;
-      document.getElementById('proofTaskStatus').innerText = completed ? 'Đã Hoàn Thành' : 'Chưa Hoàn Thành';
-      document.getElementById('proofTaskDate').innerText = dateStr;
-
-      const imgEl = document.getElementById('proofImageDisplay');
-      const noText = document.getElementById('noProofText');
-
-      if (imageSrc) {
-        imgEl.src = imageSrc;
-        imgEl.classList.remove('hidden');
-        noText.classList.add('hidden');
-      } else {
-        imgEl.classList.add('hidden');
-        noText.classList.remove('hidden');
-      }
-
-      document.getElementById('proofModal').classList.remove('hidden');
-    }
-
-    document.getElementById('closeProofModalBtn').addEventListener('click', () => {
-      document.getElementById('proofModal').classList.add('hidden');
-    });
-
-    // ROUTE: HANDLE PUBLIC QR NAVIGATION (Secret View Mode)
-    async function handlePublicQRNavigation(hash) {
-      document.getElementById('mainScreen').classList.add('hidden');
-      document.getElementById('loginModal').classList.add('hidden');
-      const container = document.getElementById('publicViewContainer');
-      container.classList.remove('hidden');
-
-      if (hash.startsWith('#profile=')) {
-        const targetUserId = hash.split('=')[1];
-        loadPublicProfile(targetUserId);
-      } else if (hash.startsWith('#verify=')) {
-        const params = new URLSearchParams(hash.replace('#verify=', ''));
-        const targetUserId = hash.replace('#verify=', '').split('&')[0];
-        const dateStr = hash.includes('&date=') ? hash.split('&date=')[1] : getTodayString();
-        loadPublicVerify(targetUserId, dateStr);
-      }
-    }
-
-    // PUBLIC MODE: LOAD PROFILE & CALENDAR
-    async function loadPublicProfile(userId) {
-      const userDoc = await db.collection('users').doc(userId).get();
-      if (!userDoc.exists) {
-        document.getElementById('publicContentArea').innerHTML = '<p class="text-rose-600 font-bold">Không tìm thấy người dùng này!</p>';
-        return;
-      }
-
-      const userData = userDoc.data();
-      document.getElementById('publicUserName').innerText = userData.name;
-      document.getElementById('publicUserId').innerText = `ID: ${userData.userId}`;
-      document.getElementById('publicViewTitleText').innerText = "Lịch Hoạt Động & Kiểm Chứng Công Việc";
-
-      // Query All Tasks of target User
-      const snapshot = await db.collection('tasks').where('userId', '==', userId).get();
-      const allTasks = [];
-      snapshot.forEach(doc => allTasks.push(doc.data()));
-
-      // Stats
-      const total = allTasks.length;
-      const completed = allTasks.filter(t => t.completed).length;
-      const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-      document.getElementById('statTotal').innerText = total;
-      document.getElementById('statCompleted').innerText = completed;
-      document.getElementById('statPercent').innerText = `${percent}%`;
-
-      // Group Tasks by Date
-      const taskByDate = {};
-      allTasks.forEach(task => {
-        if (!taskByDate[task.dateStr]) taskByDate[task.dateStr] = [];
-        taskByDate[task.dateStr].push(task);
-      });
-
-      // Render Activity Calendar List
-      const content = document.getElementById('publicContentArea');
-      content.innerHTML = '<h3 class="font-black text-slate-800 mb-3">Lịch Sử Các Ngày Lập Task:</h3>';
-
-      const dates = Object.keys(taskByDate).sort().reverse();
-
-      if (dates.length === 0) {
-        content.innerHTML += '<p class="text-slate-400 font-bold py-4">Chưa có lịch sử công việc nào được ghi nhận.</p>';
-        return;
-      }
-
-      const listDiv = document.createElement('div');
-      listDiv.className = 'space-y-3';
-
-      dates.forEach(dateStr => {
-        const tasks = taskByDate[dateStr];
-        const isAllDone = tasks.every(t => t.completed);
-
-        const card = document.createElement('div');
-        card.className = `p-4 rounded-2xl border-2 flex justify-between items-center cursor-pointer transition-all hover:scale-[1.01] ${isAllDone ? 'bg-emerald-50 border-emerald-300' : 'bg-rose-50 border-rose-300'}`;
-        
-        card.onclick = () => loadPublicVerify(userId, dateStr);
-
-        card.innerHTML = `
-          <div>
-            <span class="text-xs font-bold ${isAllDone ? 'text-emerald-700' : 'text-rose-700'} uppercase">Ngày: ${dateStr}</span>
-            <h4 class="text-lg font-black text-slate-900">${tasks.length} Công việc</h4>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-bold px-3 py-1 rounded-full ${isAllDone ? 'bg-emerald-200 text-emerald-800' : 'bg-rose-200 text-rose-800'}">
-              ${isAllDone ? 'Hoàn Thành Tất Cả' : 'Chưa Hoàn Thành'}
-            </span>
-            <i class="fa-solid fa-chevron-right text-slate-400"></i>
-          </div>
-        `;
-        listDiv.appendChild(card);
-      });
-
-      content.appendChild(listDiv);
-    }
-
-    // PUBLIC MODE: LOAD SPECIFIC DATE VERIFICATION
-    async function loadPublicVerify(userId, dateStr) {
-      const userDoc = await db.collection('users').doc(userId).get();
-      if (userDoc.exists) {
-        document.getElementById('publicUserName').innerText = userDoc.data().name;
-        document.getElementById('publicUserId').innerText = `ID: ${userDoc.data().userId}`;
-      }
-
-      document.getElementById('publicViewTitleText').innerText = `Kiểm Chứng Task Ngày ${dateStr}`;
-
-      const snapshot = await db.collection('tasks')
-        .where('userId', '==', userId)
-        .where('dateStr', '==', dateStr)
-        .get();
-
-      const tasks = [];
-      snapshot.forEach(doc => tasks.push(doc.data()));
-
-      const content = document.getElementById('publicContentArea');
-      content.innerHTML = `
-        <button onclick="loadPublicProfile('${userId}')" class="text-xs font-bold text-indigo-600 mb-4 inline-flex items-center gap-1 hover:underline">
-          <i class="fa-solid fa-arrow-left"></i> Quay lại Lịch Tổng
-        </button>
-      `;
-
-      if (tasks.length === 0) {
-        content.innerHTML += `<p class="text-slate-400 font-bold py-4">Không có công việc nào trong ngày ${dateStr}.</p>`;
-        return;
-      }
-
-      const listDiv = document.createElement('div');
-      listDiv.className = 'space-y-3';
-
-      tasks.forEach(task => {
-        const item = document.createElement('div');
-        item.className = `p-4 rounded-2xl border-2 flex justify-between items-center ${task.completed ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200 bg-white'}`;
-
-        item.innerHTML = `
-          <div>
-            <span class="text-xs font-mono font-bold text-indigo-600">ID: ${task.taskId}</span>
-            <p class="text-lg font-black ${task.completed ? 'line-through text-slate-400' : 'text-slate-900'}">${escapeHtml(task.text)}</p>
-            <span class="text-xs font-bold ${task.completed ? 'text-emerald-600' : 'text-rose-500'}">
-              ${task.completed ? '✓ Đã Hoàn Thành' : '✗ Chưa Hoàn Thành'}
-            </span>
-          </div>
-
-          <div>
-            ${task.proofImage ? `
-              <button onclick="openProofModal('${task.taskId}', '${escapeHtml(task.text)}', '${task.proofImage}', ${task.completed}, '${task.dateStr}')" class="bg-indigo-600 text-white font-bold text-xs py-2 px-3 rounded-xl hover:bg-indigo-700 transition-all flex items-center gap-1">
-                <i class="fa-solid fa-image"></i> Xem Bằng Chứng
-              </button>
-            ` : '<span class="text-xs text-slate-400 font-bold">Chưa có ảnh</span>'}
-          </div>
-        `;
-        listDiv.appendChild(item);
-      });
-
-      content.appendChild(listDiv);
-    }
-
-    // UTILITY: ESCAPE HTML TO PREVENT XSS
-    function escapeHtml(text) {
-      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    }
   </script>
+
+  <style type="text/css" media="print">
+    body * { visibility: hidden; }
+    #printModal, #printModal * { visibility: visible; }
+    #printModal { position: absolute; left: 0; top: 0; background: transparent; backdrop-filter: none; display: block !important; padding: 0;}
+    #printCardArea { box-shadow: none !important; margin: 0; border: none; width: 100%; max-width: 100%; }
+    #closePrintModalBtn, #downloadPdfBtn, #triggerPrintBtn { display: none !important; }
+    @page { margin: 0; size: auto; }
+  </style>
+
 </body>
 </html>
